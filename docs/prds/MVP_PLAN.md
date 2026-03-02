@@ -69,14 +69,15 @@ blocks/
     blocks-contract/
     blocks-registry/
     blocks-runtime/
+    blocks-core/
     blocks-cli/
     blocks-composer/
   blocks/
-    core.http.get/
-    core.fs.read_text/
-    core.fs.write_text/
-    core.json.transform/
-    core.llm.chat/
+    <block-id>/
+      block.yaml
+      rust/
+        lib.rs
+      tauri_ts/        # optional
   skills/
     create-block.md
     compose-app.md
@@ -95,12 +96,13 @@ blocks/
 
 ### 运行模型
 
-第一阶段把系统收敛成 5 个核心对象：
+第一阶段把系统收敛成 6 个核心对象：
 
 - `Block Contract`：`block.yaml`，定义输入、输出、前后置条件、失败策略。
 - `Block Implementation`：由 `Rust` 或 `Tauri + TS` 代码实现具体能力。
 - `Registry`：扫描本地 `blocks/` 目录，发现可用 block。
 - `Runtime`：按契约执行 block，做验证、日志、失败恢复。
+- `Core Runner`：静态链接当前内置 block 实现，向 runtime 提供统一执行入口。
 - `App Launcher`：用 Rust 和可选的 Tauri + TS 代码启动 app，并在代码中组织 block 调用。
 
 为了控制复杂度，第一阶段还需要遵守三条架构约束：
@@ -196,7 +198,7 @@ pub trait ContractValidator {
 
 建议 CLI：
 
-- `blocks list`
+- `blocks list <blocks-root>`
 - `blocks show <block-id>`
 - `blocks search <keyword>`
 
@@ -220,7 +222,7 @@ pub trait ContractValidator {
 - 调用 block
 - 执行后做输出校验与后置条件检查
 - 记录执行日志
-- 按 `failure_modes` 做最小恢复动作
+- 当前默认 `fail_fast` 返回结构化错误，并为后续恢复策略预留扩展点
 
 建议 crate：`crates/blocks-runtime`
 
@@ -230,20 +232,20 @@ pub trait ContractValidator {
 runtime.execute("core.http.get", input)
 ```
 
-建议先支持 3 种失败恢复策略：
+后续可扩展 3 种失败恢复策略：
 
 - `fail_fast`
 - `retry_once`
 - `fallback_to_default`
 
-这已经足够支撑 MVP 验证，不要在第一阶段引入复杂规则引擎。
+当前最小 MVP 先实现 `fail_fast`，不要在第一阶段引入复杂规则引擎。
 
 测试要求：
 
 - 输入校验失败时不执行 block
 - block 执行失败时返回结构化错误
 - 输出校验失败时能阻断成功结果
-- `retry_once` 不会无限重试
+- 为后续 `retry_once` / `fallback_to_default` 预留清晰扩展边界
 
 #### 4. Composer（轻量描述与验证层，不是最终 app 运行时）
 
@@ -302,21 +304,19 @@ CLI 是第一阶段真正的产品入口，比桌面 UI 更重要。
 
 建议 crate：`crates/blocks-cli`
 
-第一阶段建议命令：
+第一阶段当前最小命令集：
 
 - `blocks list`
-- `blocks show <block-id>`
-- `blocks run <block-id> --input <file>`
-- `blocks compose run <app.yaml> --input <file>`
-- `blocks init block <block-id>`
-- `blocks init app <app-name>`
-- `blocks validate <path>`
+- `blocks show <blocks-root> <block-id>`
+- `blocks run <blocks-root> <block-id> <input-json-file>`
+- `blocks compose validate <blocks-root> <app-yaml>`
+- `cargo run --manifest-path apps/<app-name>/backend/Cargo.toml -- <blocks-root> <app-yaml> <input-json-file>`
 
 其中：
 
-- `init block` 负责生成标准目录模板
-- `init app` 负责生成最小组合应用模板
-- `validate` 负责检查 block 或 app 清单是否合法
+- `blocks compose validate` 负责检查 app 描述是否合法，并生成最小执行计划
+- app 的真实运行入口由 `apps/<app-name>/backend/src/main.rs` 承载
+- 若存在前端，则由 `apps/<app-name>/frontend/` 中的 Tauri + TS 启动器承载前端能力 block
 
 这会直接成为 AI 使用本项目的标准操作面。
 
@@ -362,11 +362,10 @@ CLI 是第一阶段真正的产品入口，比桌面 UI 更重要。
 `create-block.md` 负责约束 AI：
 
 - 如何判断某个需求是否应该沉淀为 block
-- 如何使用 `blocks init block`
 - 如何填写 `block.yaml`
 - 如何编写最小实现
 - 如何补齐测试与示例
-- 如何用 `blocks validate` 自检
+- 如何用 `cargo test` 和 `blocks show` 自检
 
 `compose-app.md` 负责约束 AI：
 
@@ -374,7 +373,8 @@ CLI 是第一阶段真正的产品入口，比桌面 UI 更重要。
 - 如何识别能力缺口
 - 如何生成 `app.yaml`
 - 如何处理输入输出绑定
-- 如何运行 `blocks compose run`
+- 如何先校验 `app.yaml`
+- 如何通过 app 启动器代码运行程序
 - 如何在失败时回退到补充 block
 
 这两份文档就是第一阶段“AI 可稳定使用”的真正杠杆。
@@ -404,29 +404,34 @@ CLI 是第一阶段真正的产品入口，比桌面 UI 更重要。
 
 ```text
 blocks/
-  block.yaml
-  README.md
-  src/
-  tests/
-  examples/
+  <block-id>/
+    block.yaml
+    README.md
+    rust/
+      lib.rs
+    tauri_ts/         # optional, frontend-only blocks
 
 apps/
   <app-name>/
     app.yaml
     input.example.json
     README.md
+    backend/
+      Cargo.toml
+      src/main.rs
+    frontend/         # optional
 ```
 
 ### 第一阶段验收标准
 
 做到以下几点，就算第一阶段 MVP 成立：
 
-1. 可以执行 `blocks init block demo.echo` 生成标准模板。
-2. AI 可以按 `skills/create-block.md` 新增一个 block，并通过 `blocks validate`。
-3. 可以执行 `blocks list` 和 `blocks show` 发现本地 blocks。
-4. 可以执行 `blocks run <block-id>`，且运行前后有契约校验。
-5. 可以执行 `blocks compose run apps/hello-pipeline/app.yaml` 顺序跑通一个小程序。
-6. 失败时至少能输出结构化错误，并触发最小恢复策略。
+1. 可以按约定目录结构创建一个标准 block 模板（`block.yaml + rust/lib.rs`）。
+2. AI 可以按 `skills/create-block.md` 新增一个 block，并通过 `cargo test` 与 `blocks show` 自检。
+3. 可以执行 `blocks list <blocks-root>` 和 `blocks show <blocks-root> <block-id>` 发现本地 blocks。
+4. 可以执行 `blocks run <blocks-root> <block-id> <input-json-file>`，且运行前后有契约校验。
+5. 可以执行 `blocks compose validate <blocks-root> apps/hello-pipeline/app.yaml` 校验组合描述，并通过 `apps/hello-pipeline/backend/src/main.rs` 顺序跑通一个小程序。
+6. 失败时至少能输出结构化错误，并保留清晰的恢复策略扩展点。
 7. 至少一个 app 能通过 Rust 启动器对外提供功能；若包含前端，则由 Tauri + TS 启动器承载前端能力 block。
 
 补充严格验收门槛：
@@ -475,7 +480,7 @@ apps/
 
 - 第一阶段测试基线稳定
 - 第一阶段架构边界未被前端或示例侵蚀
-- `app.yaml` 过渡层已经验证了最小组合模型成立
+- `app.yaml` 过渡层已经验证了最小组合模型成立，且 app 启动器模式已稳定
 
 ### 第二阶段新增能力
 
@@ -515,13 +520,13 @@ apps/
 - 类型不匹配诊断
 - 输出不可达诊断
 
-#### 3. BCL Compiler（先编译到 app manifest）
+#### 3. BCL Compiler（先编译到描述层与启动器辅助产物）
 
-第二阶段不必直接编译成复杂运行产物，先编译到第一阶段的 `app.yaml` 或内部执行计划即可。
+第二阶段不必直接编译成复杂运行产物，先编译到第一阶段的 `app.yaml`、内部执行计划或 app 启动器辅助代码即可。
 
 即：
 
-`BCL source -> AST -> semantic checks -> execution plan`
+`BCL source -> AST -> semantic checks -> app descriptor / execution plan`
 
 这样可以复用第一阶段的 runtime，不要重复造轮子。
 

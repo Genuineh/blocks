@@ -11,7 +11,7 @@ Create a new block only if all of these are true:
 - success and failure can be checked quickly
 - the behavior can be kept small and single-purpose
 
-If the work is app-specific glue, keep it in the app manifest instead of creating a block.
+If the work is app-specific glue, keep it in the app launcher instead of creating a block.
 
 ## Current Ground Rules
 
@@ -22,7 +22,7 @@ If the work is app-specific glue, keep it in the app manifest instead of creatin
 - The actual capability must live in code:
   - `Rust` for backend or shared library blocks
   - `Tauri + TS` for frontend-only blocks
-- If the block needs runtime support today, wire it into the current Rust runner or the future frontend launcher.
+- If the block needs runtime support today, wire it into `crates/blocks-core` or the future frontend launcher.
 
 ## Workflow
 
@@ -43,10 +43,10 @@ If the work is app-specific glue, keep it in the app manifest instead of creatin
    - `output_schema`
 4. Add `README.md` with the block purpose and the expected result.
 5. Add the actual implementation in code:
-   - Rust block: repository Rust code or a Rust crate/module
-   - Frontend block: Tauri + TS code
-6. If the block must execute in the current MVP baseline, add the smallest temporary executor to:
-   `crates/blocks-cli/src/main.rs`
+   - Rust block: `blocks/<block-id>/rust/lib.rs`
+   - Frontend block: `blocks/<block-id>/tauri_ts/`
+6. If the block must execute in the current MVP baseline, register it in:
+   `crates/blocks-core/src/lib.rs`
 7. Add or extend tests that prove:
    - invalid input fails
    - valid input succeeds
@@ -64,5 +64,6 @@ If the work is app-specific glue, keep it in the app manifest instead of creatin
 - Required fields are explicit in `block.yaml`.
 - Input and output schemas are both present.
 - The implementation type matches the target (`rust` for backend/shared, `tauri_ts` for frontend).
-- The implementation does not move contract or registry logic into the CLI.
+- The implementation does not move contract or registry logic into the CLI or app launchers.
+- Current MVP Rust blocks are linked through `blocks-core`, not re-implemented inside the CLI.
 - Tests cover at least one failure path and one success path.

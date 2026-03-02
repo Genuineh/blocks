@@ -1,33 +1,23 @@
+use std::collections::BTreeMap;
 use std::fs;
 
 use blocks_composer::{AppManifest, ComposeError, Composer};
-use blocks_runtime::{BlockExecutionError, BlockRunner};
-use serde_json::{Value, json};
+use serde_json::json;
 use tempfile::TempDir;
-
-struct EchoRunner;
-
-impl BlockRunner for EchoRunner {
-    fn run(&self, block_id: &str, input: &Value) -> Result<Value, BlockExecutionError> {
-        match block_id {
-            "demo.echo" => Ok(json!({
-                "text": input.get("text").cloned().unwrap_or(Value::Null)
-            })),
-            other => Err(BlockExecutionError::new(format!(
-                "unexpected block execution: {other}"
-            ))),
-        }
-    }
-}
 
 fn write_demo_echo_block(root: &TempDir) {
     let block_dir = root.path().join("demo.echo");
-    fs::create_dir_all(&block_dir).expect("block dir should be created");
+    let rust_dir = block_dir.join("rust");
+    fs::create_dir_all(&rust_dir).expect("block dir should be created");
     fs::write(
         block_dir.join("block.yaml"),
         r#"
 id: demo.echo
 name: Demo Echo
+implementation:
+  kind: rust
+  entry: rust/lib.rs
+  target: shared
 input_schema:
   text:
     type: string
@@ -39,6 +29,7 @@ output_schema:
 "#,
     )
     .expect("contract should be written");
+    fs::write(rust_dir.join("lib.rs"), "// fixture").expect("implementation should be written");
 }
 
 #[test]
@@ -65,8 +56,7 @@ flows:
     )
     .expect("manifest should parse");
 
-    let result =
-        Composer::new().execute(&manifest, &json!({"text": "hello"}), &registry, &EchoRunner);
+    let result = Composer::new().plan(&manifest, &registry);
 
     assert!(matches!(
         result,
@@ -101,7 +91,7 @@ flows:
     )
     .expect("manifest should parse");
 
-    let result = Composer::new().execute(&manifest, &json!({"text": 42}), &registry, &EchoRunner);
+    let result = Composer::new().plan(&manifest, &registry);
 
     assert!(matches!(
         result,
@@ -111,7 +101,7 @@ flows:
 }
 
 #[test]
-fn executes_serial_flow_and_returns_last_step_output() {
+fn builds_a_serial_execution_plan() {
     let blocks_root = TempDir::new().expect("temp dir should be created");
     write_demo_echo_block(&blocks_root);
     let registry = blocks_registry::Registry::load_from_root(blocks_root.path())
@@ -140,10 +130,23 @@ flows:
     )
     .expect("manifest should parse");
 
-    let result = Composer::new()
-        .execute(&manifest, &json!({"text": "hello"}), &registry, &EchoRunner)
-        .expect("composer should succeed");
+    let plan = Composer::new()
+        .plan(&manifest, &registry)
+        .expect("planner should succeed");
 
-    assert_eq!(result.last_step_id, "second");
-    assert_eq!(result.output, json!({"text": "hello"}));
+    assert_eq!(plan.last_step_id, "second");
+    assert_eq!(plan.steps.len(), 2);
+
+    let first_input = plan.steps[0]
+        .build_input(&json!({ "text": "hello" }), &BTreeMap::new())
+        .expect("first step input should build");
+    assert_eq!(first_input.get("text"), Some(&json!("hello")));
+
+    let mut step_outputs = BTreeMap::new();
+    step_outputs.insert("first".to_string(), json!({ "text": "hello" }));
+
+    let second_input = plan.steps[1]
+        .build_input(&json!({ "text": "hello" }), &step_outputs)
+        .expect("second step input should build");
+    assert_eq!(second_input.get("text"), Some(&json!("hello")));
 }

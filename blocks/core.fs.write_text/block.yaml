@@ -5,8 +5,8 @@ status: draft
 purpose: Write UTF-8 text to a file on disk.
 implementation:
   kind: rust
-  entry: crates/blocks-cli/src/main.rs
-  target: shared
+  entry: rust/lib.rs
+  target: backend
 input_schema:
   path:
     type: string

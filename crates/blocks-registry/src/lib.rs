@@ -8,7 +8,9 @@ use thiserror::Error;
 #[derive(Debug, Clone)]
 pub struct RegisteredBlock {
     pub contract: BlockContract,
+    pub block_dir: PathBuf,
     pub contract_path: PathBuf,
+    pub implementation_path: PathBuf,
 }
 
 #[derive(Debug, Default)]
@@ -38,6 +40,10 @@ pub enum RegistryError {
         #[source]
         source: ContractLoadError,
     },
+    #[error("missing implementation metadata in contract {path}")]
+    MissingImplementationMetadata { path: PathBuf },
+    #[error("implementation entry for block {block_id} does not exist: {path}")]
+    MissingImplementationEntry { block_id: String, path: PathBuf },
     #[error("duplicate block id: {0}")]
     DuplicateBlockId(String),
 }
@@ -84,6 +90,19 @@ impl Registry {
                     source,
                 }
             })?;
+            let implementation = contract.implementation.as_ref().ok_or_else(|| {
+                RegistryError::MissingImplementationMetadata {
+                    path: contract_path.clone(),
+                }
+            })?;
+            let implementation_path = block_dir.join(&implementation.entry);
+
+            if !implementation_path.is_file() {
+                return Err(RegistryError::MissingImplementationEntry {
+                    block_id: contract.id.clone(),
+                    path: implementation_path,
+                });
+            }
 
             if blocks.contains_key(&contract.id) {
                 return Err(RegistryError::DuplicateBlockId(contract.id));
@@ -93,7 +112,9 @@ impl Registry {
                 contract.id.clone(),
                 RegisteredBlock {
                     contract,
+                    block_dir,
                     contract_path,
+                    implementation_path,
                 },
             );
         }

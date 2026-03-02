@@ -10,6 +10,7 @@ path = "src/main.rs"
 
 [dependencies]
 blocks-composer = { path = "../blocks-composer" }
+blocks-core = { path = "../blocks-core" }
 blocks-registry = { path = "../blocks-registry" }
 blocks-runtime = { path = "../blocks-runtime" }
 serde_json.workspace = true

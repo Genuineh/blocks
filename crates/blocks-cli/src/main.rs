@@ -1,13 +1,12 @@
 use std::env;
 use std::fs;
-use std::io::{Read, Write};
-use std::net::TcpStream;
 use std::process::ExitCode;
 
 use blocks_composer::{AppManifest, Composer};
+use blocks_core::LibraryBlockRunner;
 use blocks_registry::Registry;
-use blocks_runtime::{BlockExecutionError, BlockRunner, Runtime};
-use serde_json::{Value, json};
+use blocks_runtime::Runtime;
+use serde_json::Value;
 
 fn main() -> ExitCode {
     match run(env::args().skip(1).collect()) {
@@ -46,6 +45,11 @@ fn run(args: Vec<String>) -> Result<String, String> {
                 lines.push(format!("name: {name}"));
             }
             lines.push(format!("contract: {}", block.contract_path.display()));
+            lines.push(format!("implementation: {}", block.implementation_path.display()));
+            if let Some(implementation) = &block.contract.implementation {
+                lines.push(format!("implementation_kind: {:?}", implementation.kind));
+                lines.push(format!("implementation_target: {:?}", implementation.target));
+            }
             Ok(lines.join("\n"))
         }
         [command, root, query] if command == "search" => {
@@ -62,181 +66,45 @@ fn run(args: Vec<String>) -> Result<String, String> {
             let Some(block) = registry.get(block_id) else {
                 return Err(format!("block not found: {block_id}"));
             };
-
-            let input_source = fs::read_to_string(input_path)
-                .map_err(|error| format!("failed to read input file {input_path}: {error}"))?;
-            let input: Value = serde_json::from_str(&input_source)
-                .map_err(|error| format!("failed to parse input JSON {input_path}: {error}"))?;
-
-            let runtime = Runtime::new();
-            let runner = CliBlockRunner;
-            let result = runtime
-                .execute(&block.contract, &input, &runner)
+            let input = read_json_file(input_path)?;
+            let result = Runtime::new()
+                .execute(&block.contract, &input, &LibraryBlockRunner)
                 .map_err(|error| error.to_string())?;
 
             serde_json::to_string_pretty(&result.output)
                 .map_err(|error| format!("failed to render output JSON: {error}"))
         }
-        [command, subcommand, root, manifest_path, input_path]
-            if command == "compose" && subcommand == "run" =>
-        {
+        [command, subcommand, root, manifest_path] if command == "compose" && subcommand == "validate" => {
             let registry = Registry::load_from_root(root).map_err(|error| error.to_string())?;
             let manifest_source = fs::read_to_string(manifest_path)
                 .map_err(|error| format!("failed to read manifest {manifest_path}: {error}"))?;
             let manifest = AppManifest::from_yaml_str(&manifest_source)
                 .map_err(|error| format!("failed to load manifest {manifest_path}: {error}"))?;
-
-            let input_source = fs::read_to_string(input_path)
-                .map_err(|error| format!("failed to read input file {input_path}: {error}"))?;
-            let input: Value = serde_json::from_str(&input_source)
-                .map_err(|error| format!("failed to parse input JSON {input_path}: {error}"))?;
-
-            let result = Composer::new()
-                .execute(&manifest, &input, &registry, &CliBlockRunner)
+            let plan = Composer::new()
+                .plan(&manifest, &registry)
                 .map_err(|error| error.to_string())?;
 
-            serde_json::to_string_pretty(&result.output)
-                .map_err(|error| format!("failed to render output JSON: {error}"))
+            Ok(format!(
+                "valid: {} ({}) flow={} steps={}",
+                plan.app_name,
+                manifest_path,
+                plan.flow_id,
+                plan.steps.len()
+            ))
         }
         _ => Err(
-            "usage: blocks <list|show|search> <blocks-root> [query|block-id]\n       blocks run <blocks-root> <block-id> <input-json-file>\n       blocks compose run <blocks-root> <app-yaml> <input-json-file>"
+            "usage: blocks <list|show|search> <blocks-root> [query|block-id]\n       blocks run <blocks-root> <block-id> <input-json-file>\n       blocks compose validate <blocks-root> <app-yaml>"
                 .to_string(),
         ),
     }
 }
 
-struct CliBlockRunner;
+fn read_json_file(path: &str) -> Result<Value, String> {
+    let source = fs::read_to_string(path)
+        .map_err(|error| format!("failed to read input file {path}: {error}"))?;
 
-impl BlockRunner for CliBlockRunner {
-    fn run(&self, block_id: &str, input: &Value) -> Result<Value, BlockExecutionError> {
-        match block_id {
-            "demo.echo" => {
-                let text = input
-                    .get("text")
-                    .cloned()
-                    .unwrap_or_else(|| Value::String(String::new()));
-                Ok(json!({ "text": text }))
-            }
-            "core.fs.read_text" => {
-                let path = input
-                    .get("path")
-                    .and_then(Value::as_str)
-                    .ok_or_else(|| BlockExecutionError::new("missing string field: path"))?;
-                let text = fs::read_to_string(path).map_err(|error| {
-                    BlockExecutionError::new(format!("failed to read file {path}: {error}"))
-                })?;
-                Ok(json!({ "text": text }))
-            }
-            "core.fs.write_text" => {
-                let path = input
-                    .get("path")
-                    .and_then(Value::as_str)
-                    .ok_or_else(|| BlockExecutionError::new("missing string field: path"))?;
-                let text = input
-                    .get("text")
-                    .and_then(Value::as_str)
-                    .ok_or_else(|| BlockExecutionError::new("missing string field: text"))?;
-                fs::write(path, text).map_err(|error| {
-                    BlockExecutionError::new(format!("failed to write file {path}: {error}"))
-                })?;
-                Ok(json!({ "path": path }))
-            }
-            "core.json.transform" => {
-                let source = input
-                    .get("source")
-                    .cloned()
-                    .ok_or_else(|| BlockExecutionError::new("missing object field: source"))?;
-                Ok(json!({ "result": source }))
-            }
-            "core.http.get" => run_core_http_get(input),
-            "core.llm.chat" => run_core_llm_chat(input),
-            _ => Err(BlockExecutionError::new(format!(
-                "no executor registered for block: {block_id}"
-            ))),
-        }
-    }
-}
-
-fn run_core_http_get(input: &Value) -> Result<Value, BlockExecutionError> {
-    let url = input
-        .get("url")
-        .and_then(Value::as_str)
-        .ok_or_else(|| BlockExecutionError::new("missing string field: url"))?;
-
-    let (host, port, path) = parse_plain_http_url(url)?;
-    let mut stream = TcpStream::connect((host.as_str(), port)).map_err(|error| {
-        BlockExecutionError::new(format!("failed to connect to {host}:{port}: {error}"))
-    })?;
-
-    let request = format!("GET {path} HTTP/1.1\r\nHost: {host}\r\nConnection: close\r\n\r\n");
-    stream.write_all(request.as_bytes()).map_err(|error| {
-        BlockExecutionError::new(format!("failed to write request to {host}:{port}: {error}"))
-    })?;
-
-    let mut buffer = Vec::new();
-    stream.read_to_end(&mut buffer).map_err(|error| {
-        BlockExecutionError::new(format!(
-            "failed to read response from {host}:{port}: {error}"
-        ))
-    })?;
-
-    let response = String::from_utf8_lossy(&buffer);
-    let (head, body) = response
-        .split_once("\r\n\r\n")
-        .ok_or_else(|| BlockExecutionError::new("invalid HTTP response"))?;
-    let status = head
-        .lines()
-        .next()
-        .and_then(|line| line.split_whitespace().nth(1))
-        .and_then(|value| value.parse::<u16>().ok())
-        .ok_or_else(|| BlockExecutionError::new("invalid HTTP status line"))?;
-
-    Ok(json!({
-        "status": status,
-        "body": body,
-    }))
-}
-
-fn run_core_llm_chat(input: &Value) -> Result<Value, BlockExecutionError> {
-    let prompt = input
-        .get("prompt")
-        .and_then(Value::as_str)
-        .ok_or_else(|| BlockExecutionError::new("missing string field: prompt"))?;
-
-    Ok(json!({
-        "text": prompt,
-    }))
-}
-
-fn parse_plain_http_url(url: &str) -> Result<(String, u16, String), BlockExecutionError> {
-    let rest = url.strip_prefix("http://").ok_or_else(|| {
-        BlockExecutionError::new("only plain http:// URLs are supported in the current MVP runner")
-    })?;
-
-    let (host_port, path) = match rest.split_once('/') {
-        Some((host_port, path)) => (host_port, format!("/{path}")),
-        None => (rest, "/".to_string()),
-    };
-
-    if host_port.is_empty() {
-        return Err(BlockExecutionError::new("missing host in url"));
-    }
-
-    let (host, port) = match host_port.split_once(':') {
-        Some((host, port)) => {
-            let port = port
-                .parse::<u16>()
-                .map_err(|_| BlockExecutionError::new("invalid port in url"))?;
-            (host.to_string(), port)
-        }
-        None => (host_port.to_string(), 80),
-    };
-
-    if host.is_empty() {
-        return Err(BlockExecutionError::new("missing host in url"));
-    }
-
-    Ok((host, port, path))
+    serde_json::from_str(&source)
+        .map_err(|error| format!("failed to parse input JSON {path}: {error}"))
 }
 
 #[cfg(test)]
@@ -250,17 +118,30 @@ mod tests {
 
     use super::run;
 
+    fn write_block(root: &std::path::Path, dir_name: &str, id: &str, body: &str) {
+        let block_dir = root.join(dir_name);
+        let rust_dir = block_dir.join("rust");
+        fs::create_dir_all(&rust_dir).expect("block dir should be created");
+        fs::write(block_dir.join("block.yaml"), body).expect("contract should be written");
+        fs::write(rust_dir.join("lib.rs"), "// fixture").expect("implementation should be written");
+        let _ = id;
+    }
+
     #[test]
     fn runs_demo_echo_block_from_cli_command() {
         let temp_dir = TempDir::new().expect("temp dir should be created");
         let blocks_root = temp_dir.path().join("blocks");
-        let block_dir = blocks_root.join("demo.echo");
-        fs::create_dir_all(&block_dir).expect("block dir should be created");
-        fs::write(
-            block_dir.join("block.yaml"),
+        write_block(
+            &blocks_root,
+            "demo.echo",
+            "demo.echo",
             r#"
 id: demo.echo
 name: Demo Echo
+implementation:
+  kind: rust
+  entry: rust/lib.rs
+  target: shared
 input_schema:
   text:
     type: string
@@ -270,8 +151,7 @@ output_schema:
     type: string
     required: true
 "#,
-        )
-        .expect("contract should be written");
+        );
 
         let input_path = temp_dir.path().join("input.json");
         fs::write(&input_path, r#"{ "text": "hello" }"#).expect("input should be written");
@@ -288,16 +168,20 @@ output_schema:
     }
 
     #[test]
-    fn runs_compose_pipeline_from_cli_command() {
+    fn validates_compose_manifest_from_cli_command() {
         let temp_dir = TempDir::new().expect("temp dir should be created");
         let blocks_root = temp_dir.path().join("blocks");
-        let block_dir = blocks_root.join("demo.echo");
-        fs::create_dir_all(&block_dir).expect("block dir should be created");
-        fs::write(
-            block_dir.join("block.yaml"),
+        write_block(
+            &blocks_root,
+            "demo.echo",
+            "demo.echo",
             r#"
 id: demo.echo
 name: Demo Echo
+implementation:
+  kind: rust
+  entry: rust/lib.rs
+  target: shared
 input_schema:
   text:
     type: string
@@ -307,8 +191,7 @@ output_schema:
     type: string
     required: true
 "#,
-        )
-        .expect("contract should be written");
+        );
 
         let manifest_path = temp_dir.path().join("app.yaml");
         fs::write(
@@ -323,170 +206,71 @@ input_schema:
 flows:
   - id: main
     steps:
-      - id: first
-        block: demo.echo
-      - id: second
+      - id: echo
         block: demo.echo
     binds:
       - from: input.text
-        to: first.text
-      - from: first.text
-        to: second.text
+        to: echo.text
 "#,
         )
         .expect("manifest should be written");
 
-        let input_path = temp_dir.path().join("input.json");
-        fs::write(&input_path, r#"{ "text": "hello pipeline" }"#).expect("input should be written");
-
         let output = run(vec![
             "compose".to_string(),
-            "run".to_string(),
+            "validate".to_string(),
             blocks_root.display().to_string(),
             manifest_path.display().to_string(),
-            input_path.display().to_string(),
         ])
-        .expect("compose command should succeed");
+        .expect("command should succeed");
 
-        assert!(output.contains("\"text\": \"hello pipeline\""));
+        assert!(output.contains("valid: echo-pipeline"));
+        assert!(output.contains("steps=1"));
     }
 
     #[test]
-    fn runs_core_fs_write_and_read_blocks() {
+    fn shows_resolved_implementation_path() {
         let temp_dir = TempDir::new().expect("temp dir should be created");
         let blocks_root = temp_dir.path().join("blocks");
-
-        let write_dir = blocks_root.join("core.fs.write_text");
-        fs::create_dir_all(&write_dir).expect("write block dir should be created");
-        fs::write(
-            write_dir.join("block.yaml"),
+        write_block(
+            &blocks_root,
+            "demo.echo",
+            "demo.echo",
             r#"
-id: core.fs.write_text
-name: Write Text File
-input_schema:
-  path:
-    type: string
-    required: true
-  text:
-    type: string
-    required: true
-output_schema:
-  path:
-    type: string
-    required: true
+id: demo.echo
+name: Demo Echo
+implementation:
+  kind: rust
+  entry: rust/lib.rs
+  target: shared
 "#,
-        )
-        .expect("write block contract should be written");
-
-        let read_dir = blocks_root.join("core.fs.read_text");
-        fs::create_dir_all(&read_dir).expect("read block dir should be created");
-        fs::write(
-            read_dir.join("block.yaml"),
-            r#"
-id: core.fs.read_text
-name: Read Text File
-input_schema:
-  path:
-    type: string
-    required: true
-output_schema:
-  text:
-    type: string
-    required: true
-"#,
-        )
-        .expect("read block contract should be written");
-
-        let file_path = temp_dir.path().join("note.txt");
-
-        let write_input = temp_dir.path().join("write.json");
-        fs::write(
-            &write_input,
-            format!(
-                r#"{{ "path": "{}", "text": "hello file" }}"#,
-                file_path.display()
-            ),
-        )
-        .expect("write input should be written");
-
-        let write_output = run(vec![
-            "run".to_string(),
-            blocks_root.display().to_string(),
-            "core.fs.write_text".to_string(),
-            write_input.display().to_string(),
-        ])
-        .expect("write command should succeed");
-
-        assert!(write_output.contains("note.txt"));
-
-        let read_input = temp_dir.path().join("read.json");
-        fs::write(
-            &read_input,
-            format!(r#"{{ "path": "{}" }}"#, file_path.display()),
-        )
-        .expect("read input should be written");
-
-        let read_output = run(vec![
-            "run".to_string(),
-            blocks_root.display().to_string(),
-            "core.fs.read_text".to_string(),
-            read_input.display().to_string(),
-        ])
-        .expect("read command should succeed");
-
-        assert!(read_output.contains("\"text\": \"hello file\""));
-    }
-
-    #[test]
-    fn runs_core_json_transform_block() {
-        let temp_dir = TempDir::new().expect("temp dir should be created");
-        let blocks_root = temp_dir.path().join("blocks");
-        let block_dir = blocks_root.join("core.json.transform");
-        fs::create_dir_all(&block_dir).expect("json block dir should be created");
-        fs::write(
-            block_dir.join("block.yaml"),
-            r#"
-id: core.json.transform
-name: JSON Transform
-input_schema:
-  source:
-    type: object
-    required: true
-output_schema:
-  result:
-    type: object
-    required: true
-"#,
-        )
-        .expect("json block contract should be written");
-
-        let input_path = temp_dir.path().join("input.json");
-        fs::write(&input_path, r#"{ "source": { "name": "blocks" } }"#)
-            .expect("input should be written");
+        );
 
         let output = run(vec![
-            "run".to_string(),
+            "show".to_string(),
             blocks_root.display().to_string(),
-            "core.json.transform".to_string(),
-            input_path.display().to_string(),
+            "demo.echo".to_string(),
         ])
-        .expect("json transform command should succeed");
+        .expect("command should succeed");
 
-        assert!(output.contains("\"result\""));
-        assert!(output.contains("\"name\": \"blocks\""));
+        assert!(output.contains("implementation:"));
+        assert!(output.contains("rust/lib.rs"));
     }
 
     #[test]
-    fn runs_core_http_get_block_against_local_server() {
+    fn runs_core_http_get_against_local_server() {
         let temp_dir = TempDir::new().expect("temp dir should be created");
         let blocks_root = temp_dir.path().join("blocks");
-        let block_dir = blocks_root.join("core.http.get");
-        fs::create_dir_all(&block_dir).expect("http block dir should be created");
-        fs::write(
-            block_dir.join("block.yaml"),
+        write_block(
+            &blocks_root,
+            "core.http.get",
+            "core.http.get",
             r#"
 id: core.http.get
 name: HTTP Get
+implementation:
+  kind: rust
+  entry: rust/lib.rs
+  target: backend
 input_schema:
   url:
     type: string
@@ -499,27 +283,28 @@ output_schema:
     type: string
     required: true
 "#,
-        )
-        .expect("http block contract should be written");
+        );
 
         let listener = TcpListener::bind("127.0.0.1:0").expect("listener should bind");
-        let address = listener.local_addr().expect("local addr should exist");
+        let address = listener
+            .local_addr()
+            .expect("local addr should be available");
 
         let server = thread::spawn(move || {
-            let (mut stream, _) = listener.accept().expect("connection should be accepted");
-            let mut request = [0_u8; 1024];
-            let _ = stream.read(&mut request);
+            let (mut stream, _) = listener.accept().expect("request should arrive");
+            let mut buffer = [0_u8; 512];
+            let _ = stream
+                .read(&mut buffer)
+                .expect("request should be readable");
             stream
-                .write_all(
-                    b"HTTP/1.1 200 OK\r\nContent-Length: 11\r\nConnection: close\r\n\r\nhello world",
-                )
+                .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 5\r\n\r\nhello")
                 .expect("response should be written");
         });
 
         let input_path = temp_dir.path().join("input.json");
         fs::write(
             &input_path,
-            format!(r#"{{ "url": "http://{}/" }}"#, address),
+            format!(r#"{{ "url": "http://127.0.0.1:{}/" }}"#, address.port()),
         )
         .expect("input should be written");
 
@@ -529,48 +314,11 @@ output_schema:
             "core.http.get".to_string(),
             input_path.display().to_string(),
         ])
-        .expect("http get should succeed");
+        .expect("command should succeed");
 
-        server.join().expect("server thread should complete");
+        server.join().expect("server should finish");
 
         assert!(output.contains("\"status\": 200"));
-        assert!(output.contains("hello world"));
-    }
-
-    #[test]
-    fn runs_core_llm_chat_block() {
-        let temp_dir = TempDir::new().expect("temp dir should be created");
-        let blocks_root = temp_dir.path().join("blocks");
-        let block_dir = blocks_root.join("core.llm.chat");
-        fs::create_dir_all(&block_dir).expect("llm block dir should be created");
-        fs::write(
-            block_dir.join("block.yaml"),
-            r#"
-id: core.llm.chat
-name: LLM Chat
-input_schema:
-  prompt:
-    type: string
-    required: true
-output_schema:
-  text:
-    type: string
-    required: true
-"#,
-        )
-        .expect("llm block contract should be written");
-
-        let input_path = temp_dir.path().join("input.json");
-        fs::write(&input_path, r#"{ "prompt": "hello model" }"#).expect("input should be written");
-
-        let output = run(vec![
-            "run".to_string(),
-            blocks_root.display().to_string(),
-            "core.llm.chat".to_string(),
-            input_path.display().to_string(),
-        ])
-        .expect("llm chat should succeed");
-
-        assert!(output.contains("\"text\": \"hello model\""));
+        assert!(output.contains("\"body\": \"hello\""));
     }
 }

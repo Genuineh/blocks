@@ -1,4 +1,4 @@
-use blocks_contract::BlockContract;
+use blocks_contract::{BlockContract, ContractLoadError};
 use serde_json::json;
 
 fn sample_contract() -> &'static str {
@@ -27,7 +27,7 @@ fn parses_implementation_metadata() {
 id: demo.echo
 implementation:
   kind: rust
-  entry: crates/blocks-cli/src/main.rs
+  entry: rust/lib.rs
   target: shared
 "#,
     )
@@ -36,7 +36,26 @@ implementation:
     let implementation = contract
         .implementation
         .expect("implementation metadata should exist");
-    assert_eq!(implementation.entry, "crates/blocks-cli/src/main.rs");
+    assert_eq!(implementation.entry, "rust/lib.rs");
+}
+
+#[test]
+fn rejects_invalid_tauri_target() {
+    let result = BlockContract::from_yaml_str(
+        r#"
+id: ui.preview
+implementation:
+  kind: tauri_ts
+  entry: tauri_ts/index.ts
+  target: backend
+"#,
+    );
+
+    assert!(matches!(
+        result,
+        Err(ContractLoadError::InvalidImplementation(message))
+        if message.contains("tauri_ts blocks must target frontend")
+    ));
 }
 
 #[test]

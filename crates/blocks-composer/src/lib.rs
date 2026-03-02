@@ -2,7 +2,6 @@ use std::collections::BTreeMap;
 
 use blocks_contract::{FieldSchema, ValueType};
 use blocks_registry::Registry;
-use blocks_runtime::{BlockRunner, Runtime, RuntimeError};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use thiserror::Error;
@@ -36,10 +35,25 @@ pub struct Bind {
     pub to: String,
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct ComposeResult {
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ExecutionPlan {
+    pub app_name: String,
+    pub flow_id: String,
     pub last_step_id: String,
-    pub output: Value,
+    pub steps: Vec<PlannedStep>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PlannedStep {
+    pub id: String,
+    pub block: String,
+    pub input_bindings: Vec<PlannedBinding>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PlannedBinding {
+    pub from: String,
+    pub to_field: String,
 }
 
 #[derive(Debug, Error)]
@@ -63,12 +77,6 @@ pub enum ComposeError {
         expected: String,
         actual: String,
     },
-    #[error("runtime failed for step {step_id}: {source}")]
-    Runtime {
-        step_id: String,
-        #[source]
-        source: RuntimeError,
-    },
 }
 
 #[derive(Debug, Default)]
@@ -85,13 +93,11 @@ impl Composer {
         Self
     }
 
-    pub fn execute(
+    pub fn plan(
         &self,
         manifest: &AppManifest,
-        input: &Value,
         registry: &Registry,
-        runner: &impl BlockRunner,
-    ) -> Result<ComposeResult, ComposeError> {
+    ) -> Result<ExecutionPlan, ComposeError> {
         let flow = manifest
             .flows
             .iter()
@@ -102,109 +108,102 @@ impl Composer {
             return Err(ComposeError::EmptyFlow(flow.id.clone()));
         }
 
-        self.validate_flow(manifest, flow, registry)?;
-
-        let runtime = Runtime::new();
-        let mut step_outputs: BTreeMap<String, Value> = BTreeMap::new();
-
-        for step in &flow.steps {
-            let step_input = self.build_step_input(manifest, flow, input, &step_outputs, step)?;
-            let contract = &registry
-                .get(&step.block)
-                .ok_or_else(|| ComposeError::UnknownBlock(step.block.clone()))?
-                .contract;
-
-            let result = runtime
-                .execute(contract, &Value::Object(step_input), runner)
-                .map_err(|source| ComposeError::Runtime {
-                    step_id: step.id.clone(),
-                    source,
-                })?;
-
-            step_outputs.insert(step.id.clone(), result.output);
-        }
-
-        let last_step = flow
+        let steps = self.validate_and_collect_steps(manifest, flow, registry)?;
+        let last_step_id = flow
             .steps
             .last()
-            .expect("flow emptiness is checked before execution");
+            .expect("flow emptiness is checked before plan creation")
+            .id
+            .clone();
 
-        Ok(ComposeResult {
-            last_step_id: last_step.id.clone(),
-            output: step_outputs
-                .remove(&last_step.id)
-                .expect("last step output should exist"),
+        Ok(ExecutionPlan {
+            app_name: manifest.name.clone(),
+            flow_id: flow.id.clone(),
+            last_step_id,
+            steps,
         })
     }
 
-    fn validate_flow(
+    fn validate_and_collect_steps(
         &self,
         manifest: &AppManifest,
         flow: &Flow,
         registry: &Registry,
-    ) -> Result<(), ComposeError> {
+    ) -> Result<Vec<PlannedStep>, ComposeError> {
+        let mut planned_steps = Vec::with_capacity(flow.steps.len());
+
         for (step_index, step) in flow.steps.iter().enumerate() {
             let registered = registry
                 .get(&step.block)
                 .ok_or_else(|| ComposeError::UnknownBlock(step.block.clone()))?;
+            let mut input_bindings = Vec::new();
 
-            for (field_name, schema) in &registered.contract.input_schema {
-                if !schema.required {
+            for bind in &flow.binds {
+                let Some(target) = parse_target_ref(&bind.to) else {
+                    return Err(ComposeError::InvalidReference(bind.to.clone()));
+                };
+
+                if target.step_id != step.id {
                     continue;
                 }
 
-                let Some(bind) = flow.binds.iter().find(|bind| {
-                    matches!(
-                        parse_target_ref(&bind.to),
-                        Some(TargetRef { step_id, field })
-                            if step_id == step.id && field == *field_name
-                    )
-                }) else {
+                let Some(target_schema) = registered.contract.input_schema.get(&target.field)
+                else {
+                    return Err(ComposeError::InvalidReference(bind.to.clone()));
+                };
+                let source_type =
+                    infer_source_type(manifest, flow, registry, step_index, &bind.from)?;
+
+                if source_type != target_schema.field_type {
+                    return Err(ComposeError::TypeMismatch {
+                        from: bind.from.clone(),
+                        to: bind.to.clone(),
+                        expected: value_type_name(target_schema.field_type).to_string(),
+                        actual: value_type_name(source_type).to_string(),
+                    });
+                }
+
+                input_bindings.push(PlannedBinding {
+                    from: bind.from.clone(),
+                    to_field: target.field,
+                });
+            }
+
+            for (field_name, schema) in &registered.contract.input_schema {
+                if schema.required
+                    && !input_bindings
+                        .iter()
+                        .any(|binding| binding.to_field == *field_name)
+                {
                     return Err(ComposeError::MissingBind {
                         step_id: step.id.clone(),
                         field: field_name.clone(),
                     });
-                };
-
-                let source_type =
-                    infer_source_type(manifest, flow, registry, step_index, &bind.from)?;
-                let target_type = schema.field_type;
-
-                if source_type != target_type {
-                    return Err(ComposeError::TypeMismatch {
-                        from: bind.from.clone(),
-                        to: bind.to.clone(),
-                        expected: value_type_name(target_type).to_string(),
-                        actual: value_type_name(source_type).to_string(),
-                    });
                 }
             }
+
+            planned_steps.push(PlannedStep {
+                id: step.id.clone(),
+                block: step.block.clone(),
+                input_bindings,
+            });
         }
 
-        Ok(())
+        Ok(planned_steps)
     }
+}
 
-    fn build_step_input(
+impl PlannedStep {
+    pub fn build_input(
         &self,
-        _manifest: &AppManifest,
-        flow: &Flow,
-        input: &Value,
+        app_input: &Value,
         step_outputs: &BTreeMap<String, Value>,
-        step: &FlowStep,
     ) -> Result<Map<String, Value>, ComposeError> {
         let mut step_input = Map::new();
 
-        for bind in &flow.binds {
-            let Some(target) = parse_target_ref(&bind.to) else {
-                return Err(ComposeError::InvalidReference(bind.to.clone()));
-            };
-
-            if target.step_id != step.id {
-                continue;
-            }
-
-            let value = resolve_value(input, step_outputs, &bind.from)?;
-            step_input.insert(target.field, value);
+        for binding in &self.input_bindings {
+            let value = resolve_value(app_input, step_outputs, &binding.from)?;
+            step_input.insert(binding.to_field.clone(), value);
         }
 
         Ok(step_input)

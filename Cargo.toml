@@ -5,6 +5,9 @@ members = [
   "crates/blocks-runtime",
   "crates/blocks-cli",
   "crates/blocks-composer",
+  "crates/blocks-core",
+  "apps/hello-pipeline/backend",
+  "apps/echo-pipeline/backend",
 ]
 resolver = "2"
 

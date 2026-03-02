@@ -5,8 +5,8 @@ status: draft
 purpose: Read a UTF-8 text file from disk.
 implementation:
   kind: rust
-  entry: crates/blocks-cli/src/main.rs
-  target: shared
+  entry: rust/lib.rs
+  target: backend
 input_schema:
   path:
     type: string

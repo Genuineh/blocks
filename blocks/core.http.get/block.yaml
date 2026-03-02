@@ -5,8 +5,8 @@ status: draft
 purpose: Perform a minimal HTTP GET request and return status and body.
 implementation:
   kind: rust
-  entry: crates/blocks-cli/src/main.rs
-  target: shared
+  entry: rust/lib.rs
+  target: backend
 input_schema:
   url:
     type: string

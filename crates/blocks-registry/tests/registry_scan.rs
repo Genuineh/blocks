@@ -5,14 +5,16 @@ use tempfile::TempDir;
 
 fn write_contract(root: &TempDir, dir_name: &str, id: &str, name: &str) {
     let block_dir = root.path().join(dir_name);
-    fs::create_dir_all(&block_dir).expect("block dir should be created");
+    let rust_dir = block_dir.join("rust");
+    fs::create_dir_all(&rust_dir).expect("block dir should be created");
     fs::write(
         block_dir.join("block.yaml"),
         format!(
-            "id: {id}\nname: {name}\ninput_schema:\n  value:\n    type: string\n    required: true\n"
+            "id: {id}\nname: {name}\nimplementation:\n  kind: rust\n  entry: rust/lib.rs\n  target: shared\ninput_schema:\n  value:\n    type: string\n    required: true\n"
         ),
     )
     .expect("contract should be written");
+    fs::write(rust_dir.join("lib.rs"), "// fixture").expect("implementation should be written");
 }
 
 #[test]
@@ -45,7 +47,10 @@ fn discovers_blocks_and_supports_search() {
     let registry = Registry::load_from_root(temp_dir.path()).expect("registry should load");
 
     assert_eq!(registry.list().len(), 2);
-    assert!(registry.get("core.http.get").is_some());
+    let block = registry
+        .get("core.http.get")
+        .expect("http block should exist");
+    assert!(block.implementation_path.ends_with("rust/lib.rs"));
     assert_eq!(registry.search("read").len(), 1);
     assert_eq!(registry.search("http").len(), 1);
 }

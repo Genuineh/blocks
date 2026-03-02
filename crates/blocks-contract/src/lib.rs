@@ -80,11 +80,15 @@ pub struct ValidationIssue {
 pub enum ContractLoadError {
     #[error("failed to parse block contract: {0}")]
     Parse(#[from] serde_yaml::Error),
+    #[error("invalid block implementation metadata: {0}")]
+    InvalidImplementation(String),
 }
 
 impl BlockContract {
     pub fn from_yaml_str(source: &str) -> Result<Self, ContractLoadError> {
-        serde_yaml::from_str(source).map_err(ContractLoadError::from)
+        let contract: Self = serde_yaml::from_str(source).map_err(ContractLoadError::from)?;
+        contract.validate_definition()?;
+        Ok(contract)
     }
 
     pub fn validate_input(&self, input: &Value) -> Result<(), Vec<ValidationIssue>> {
@@ -130,6 +134,28 @@ impl BlockContract {
         } else {
             Err(issues)
         }
+    }
+
+    fn validate_definition(&self) -> Result<(), ContractLoadError> {
+        let Some(implementation) = &self.implementation else {
+            return Ok(());
+        };
+
+        if implementation.entry.trim().is_empty() {
+            return Err(ContractLoadError::InvalidImplementation(
+                "implementation.entry must not be empty".to_string(),
+            ));
+        }
+
+        if implementation.kind == ImplementationKind::TauriTs
+            && implementation.target != ImplementationTarget::Frontend
+        {
+            return Err(ContractLoadError::InvalidImplementation(
+                "tauri_ts blocks must target frontend".to_string(),
+            ));
+        }
+
+        Ok(())
     }
 }
 

@@ -1,0 +1,9 @@
+[package]
+name = "blocks-core"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+
+[dependencies]
+blocks-runtime = { path = "../blocks-runtime" }
+serde_json.workspace = true

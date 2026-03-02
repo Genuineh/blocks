@@ -10,46 +10,42 @@
 ## 当前进度
 
 - `P0`：已完成。Rust workspace、架构草图、`blocks-contract`、`blocks-registry`、最小 CLI 和本地扫描已落地并通过测试。
-- `P1`：功能基线已完成，但当前实现仍需按最新规范整改。当前已完成 `blocks-runtime` 最小执行闭环、`blocks run`、`app.yaml` 串行组合执行、`blocks compose run`，并落地 5 个最小核心 block。
-- `P2`：功能基线已完成，但技能文档和示例仍需按“描述与实现分离、app 启动器代码化”的新架构整改。
-- `P3`：未开始。
+- `P1`：已完成，并已通过 `R0` 整改对齐新规范。当前已实现 `blocks-runtime` 单 block 执行闭环、`blocks run`、`app.yaml` 校验与计划生成，并落地 5 个最小核心 block。
+- `P2`：已完成，并已通过 `R0` 整改对齐新规范。技能文档、示例 app、启动器结构已与“描述与实现分离”模型一致。
+- `P3`：未开始。下一阶段应优先定义最小 Tauri + TS 前端启动器与前端能力 block 的边界。
 
 ## 当前整改状态
 
-- `R0`：未开始。需要先把当前实现从“可运行原型”整改为“符合最新规范的最小正式结构”。
+- `R0`：已完成。当前实现已从“可运行原型”整改为“符合最新规范的最小正式结构”。
 
 ## 当前最高优先级的架构问题
 
-- `block.yaml` 必须回归为描述文件；需要补充实现类型与适用端信息，并逐步让 block 目录映射到 Rust 或 Tauri + TS 代码实现。
-- `app.yaml` 不能被当作 app 本身；需要把当前“描述即运行”的思路降级为校验层，并把真实编排迁移到 Rust / Tauri 启动器代码。
-- 当前 block 的具体行为仍主要放在 `crates/blocks-cli/src/main.rs`，这只适合临时 MVP，不符合长期规范；需要拆回 block 实现代码或共享库代码。
-- 当前 `blocks compose run` 仍直接承担 app 行为，这只适合作为过渡验证层；最终 app 行为必须迁移到 app 启动器代码。
-- 固化第一阶段最小系统边界：`contract / registry / runtime / cli` 四层职责不能混叠。
-- 确认组合执行仍保持“薄运行时”原则，避免在第一阶段把 `composer` 做成隐性工作流引擎。
-- 明确 block 契约、执行计划、运行日志三种核心模型的边界，避免后续重复抽象。
+- `P3` 前需要先定义前端能力 block 的运行边界：哪些 block 可以在 `Tauri + TS` 前端启动器内运行，哪些能力必须留在 Rust 后端。
+- 当前的 Rust app 启动器样例已经成立，但前端启动器仍只有目录占位；下一轮需要先做前端边界设计，再进入实现。
+- 在进入 `BCL` 前，先保持 `contract / registry / runtime / composer / app-launcher` 的分层稳定，避免在第二阶段反向把执行逻辑塞回描述层。
 
 ## R0（规范整改，当前最高优先级）
 
-- [ ] 调整 block 目录结构：为现有 block 补齐真实实现目录，至少明确 `rust/` 或 `tauri_ts/` 的实际代码归属，而不是只在 `block.yaml` 中声明。
-- [ ] 将当前放在 `crates/blocks-cli/src/main.rs` 中的 block 具体行为逐步迁出：抽到独立 Rust 库模块或 block 对应的实现代码中，CLI 只负责装配和调用。
-- [ ] 强化 `blocks-contract`：校验 `implementation.kind`、`implementation.entry`、`implementation.target` 的合法性，并在可能时校验入口路径是否存在。
-- [ ] 调整 `blocks-registry`：发现 block 时同时暴露实现元数据，确保后续运行层和启动器层可以按实现类型做分发。
-- [ ] 重构 `blocks-runtime`：将其固定为单 block 执行胶水层，不直接承载 app 级编排。
-- [ ] 重构 `blocks-composer`：将其从“临时执行器”降级为“描述校验 / 计划生成层”，避免它继续扮演最终 app 运行入口。
-- [ ] 为 app 建立正式结构：至少让 `apps/hello-pipeline/` 拥有 `backend/src/main.rs`，由 Rust 启动器承载真实 app 逻辑。
-- [ ] 为前端 app 预留正式结构：定义 `apps/<app>/frontend/` 的 Tauri + TS 启动器边界，明确它只启动前端能力 block。
-- [ ] 调整 CLI：区分“校验描述文件”和“运行 app 启动器”，避免继续把 `compose run` 当作最终产品入口。
-- [ ] 修正技能文档：让 `skills/create-block.md` 和 `skills/compose-app.md` 明确要求“描述文件 + 实现代码 + 启动器代码”三者分离。
-- [ ] 修正示例：将现有 `hello-pipeline`、`echo-pipeline` 从“主要依赖 manifest 执行”过渡到“以启动器代码为主，manifest 为辅”。
-- [ ] 复核白皮书、规范、PRD 文档，确保“block 是库能力、app 有启动器代码”这条规则表述一致。
+- [x] 调整 block 目录结构：现有 block 已补齐真实实现目录，使用 `block.yaml + rust/lib.rs` 结构。
+- [x] 将当前放在 `crates/blocks-cli/src/main.rs` 中的 block 具体行为迁出：现已收敛到 `crates/blocks-core`，并映射到各 block 自身的 Rust 实现文件。
+- [x] 强化 `blocks-contract`：已校验 `implementation.kind`、`implementation.entry`、`implementation.target` 的合法性。
+- [x] 调整 `blocks-registry`：发现 block 时已暴露实现元数据，并校验实现入口路径存在。
+- [x] 重构 `blocks-runtime`：已固定为单 block 执行胶水层，不直接承载 app 级编排。
+- [x] 重构 `blocks-composer`：已降级为“描述校验 / 计划生成层”，不再直接执行 app。
+- [x] 为 app 建立正式结构：`apps/hello-pipeline/`、`apps/echo-pipeline/` 已拥有 `backend/src/main.rs` 作为真实入口。
+- [x] 为前端 app 预留正式结构：已补 `apps/<app>/frontend/README.md`，明确 Tauri + TS 前端启动器边界。
+- [x] 调整 CLI：已区分“校验描述文件”和“运行 app 启动器”，`compose run` 已改为 `compose validate`。
+- [x] 修正技能文档：`skills/create-block.md` 和 `skills/compose-app.md` 已明确要求“描述文件 + 实现代码 + 启动器代码”三者分离。
+- [x] 修正示例：`hello-pipeline`、`echo-pipeline` 已改为“以启动器代码为主，manifest 为辅”。
+- [x] 复核白皮书、规范、PRD 文档，确保“block 是库能力、app 有启动器代码”这条规则表述一致。
 
 R0 验收：
 
-- `block.yaml` 只承担描述职责，不再被默认视为执行入口。
-- 至少一个 block 的真实能力已脱离 CLI 内嵌实现，进入独立 Rust 实现代码。
-- 至少一个 app 以 `backend/src/main.rs` 作为真实入口对外运行。
-- `blocks-composer` 不再是唯一 app 执行路径，而是校验或辅助层。
-- 技能文档、示例、规范和实际代码结构一致。
+- [x] `block.yaml` 只承担描述职责，不再被默认视为执行入口。
+- [x] 至少一个 block 的真实能力已脱离 CLI 内嵌实现，进入独立 Rust 实现代码。
+- [x] 至少一个 app 以 `backend/src/main.rs` 作为真实入口对外运行。
+- [x] `blocks-composer` 不再是唯一 app 执行路径，而是校验或辅助层。
+- [x] 技能文档、示例、规范和实际代码结构一致。
 
 ## P0
 
@@ -86,8 +82,8 @@ P1 验收：
 - [x] 编写 `skills/create-block.md`，约束 AI 如何创建和验证新 block。
 - [x] 编写 `skills/compose-app.md`，约束 AI 如何发现 block 并组装独立程序。
 - [x] 提供 `hello-pipeline` 示例应用，验证 blocks 能组装出一个最小独立程序。
-- [ ] 按新架构修正技能文档：明确 `block.yaml` 只描述，app 逻辑应写在 Rust / Tauri 启动器中。
-- [ ] 调整示例应用结构：将 `hello-pipeline` 从单纯 manifest 示例升级为带启动器代码的 app 示例。
+- [x] 按新架构修正技能文档：明确 `block.yaml` 只描述，app 逻辑应写在 Rust / Tauri 启动器中。
+- [x] 调整示例应用结构：将 `hello-pipeline` 从单纯 manifest 示例升级为带启动器代码的 app 示例。
 
 P2 验收：
 

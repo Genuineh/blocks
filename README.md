@@ -89,7 +89,7 @@
 - [docs/whitepapers/DEVELOPMENT_WHITEPAPER.md](./docs/whitepapers/DEVELOPMENT_WHITEPAPER.md)：面向 `blocks` 能力进行项目产出的开发白皮书，定义交付方法与工程流程。
 - [docs/specs/BLOCKS_SPEC.md](./docs/specs/BLOCKS_SPEC.md)：`blocks` 规范，定义一个合格 `block` 的结构、契约、验证与质量要求。
 - [docs/whitepapers/BLOCKS_LANGUAGE_WHITEPAPER.md](./docs/whitepapers/BLOCKS_LANGUAGE_WHITEPAPER.md)：面向 AI 的 `blocks` 抽象语言白皮书，定义语言模型、基础语法、编译器与产物形态。
-- [apps/echo-pipeline/README.md](./apps/echo-pipeline/README.md)：最小串行组合示例，可直接用于验证 `blocks compose run`。
-- [apps/hello-pipeline/README.md](./apps/hello-pipeline/README.md)：最小文件读写示例，可直接用于验证独立程序由 block 组装。
+- [apps/echo-pipeline/README.md](./apps/echo-pipeline/README.md)：最小串行组合示例，展示 `app.yaml` 校验和 Rust backend 启动器。
+- [apps/hello-pipeline/README.md](./apps/hello-pipeline/README.md)：最小文件读写示例，展示 block 组合后的真实 app 启动入口。
 - [skills/create-block.md](./skills/create-block.md)：创建新 block 的标准流程。
-- [skills/compose-app.md](./skills/compose-app.md)：用现有 block 组装 `app.yaml` 的标准流程。
+- [skills/compose-app.md](./skills/compose-app.md)：用现有 block 组装 `app.yaml` 并落地 app 启动器的标准流程。

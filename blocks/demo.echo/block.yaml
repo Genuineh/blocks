@@ -5,7 +5,7 @@ status: draft
 purpose: Echo a text payload for local registry and CLI smoke testing.
 implementation:
   kind: rust
-  entry: crates/blocks-cli/src/main.rs
+  entry: rust/lib.rs
   target: shared
 input_schema:
   text:
