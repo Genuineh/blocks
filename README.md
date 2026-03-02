@@ -79,7 +79,9 @@
 
 ## 仓库文档
 
-- [WHITEPAPER.md](./WHITEPAPER.md)：`blocks` 的理念白皮书，解释为什么需要这种面向 AI 的基础组件。
-- [DEVELOPMENT_WHITEPAPER.md](./DEVELOPMENT_WHITEPAPER.md)：面向 `blocks` 能力进行项目产出的开发白皮书，定义交付方法与工程流程。
-- [BLOCKS_SPEC.md](./BLOCKS_SPEC.md)：`blocks` 规范，定义一个合格 `block` 的结构、契约、验证与质量要求。
-- [BLOCKS_LANGUAGE_WHITEPAPER.md](./BLOCKS_LANGUAGE_WHITEPAPER.md)：面向 AI 的 `blocks` 抽象语言白皮书，定义语言模型、基础语法、编译器与产物形态。
+- [docs/TODO.md](./docs/TODO.md)：当前代办、优先级与近期推进顺序。
+- [docs/design/MVP_PLAN.md](./docs/design/MVP_PLAN.md)：当前最小 MVP 的架构分期与实施路径。
+- [docs/whitepapers/WHITEPAPER.md](./docs/whitepapers/WHITEPAPER.md)：`blocks` 的理念白皮书，解释为什么需要这种面向 AI 的基础组件。
+- [docs/whitepapers/DEVELOPMENT_WHITEPAPER.md](./docs/whitepapers/DEVELOPMENT_WHITEPAPER.md)：面向 `blocks` 能力进行项目产出的开发白皮书，定义交付方法与工程流程。
+- [docs/specs/BLOCKS_SPEC.md](./docs/specs/BLOCKS_SPEC.md)：`blocks` 规范，定义一个合格 `block` 的结构、契约、验证与质量要求。
+- [docs/whitepapers/BLOCKS_LANGUAGE_WHITEPAPER.md](./docs/whitepapers/BLOCKS_LANGUAGE_WHITEPAPER.md)：面向 AI 的 `blocks` 抽象语言白皮书，定义语言模型、基础语法、编译器与产物形态。
