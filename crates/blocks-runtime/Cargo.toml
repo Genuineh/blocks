@@ -6,4 +6,5 @@ version.workspace = true
 
 [dependencies]
 blocks-contract = { path = "../blocks-contract" }
-
+serde_json.workspace = true
+thiserror.workspace = true

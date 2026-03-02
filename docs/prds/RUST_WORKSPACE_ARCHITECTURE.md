@@ -15,7 +15,12 @@
   - 不负责执行 block。
 - `blocks-runtime`
   - 负责后续的执行胶水层、执行结果和运行日志模型。
-  - 第一轮只保留最小占位，避免提前把业务逻辑堆进运行时。
+  - 当前负责单 block 的执行胶水：输入校验、执行调用、输出校验。
+  - 不负责目录扫描和组合编排。
+- `blocks-composer`
+  - 负责 `app.yaml` 的解析、bind 校验、类型匹配和串行组合执行。
+  - 依赖 `blocks-registry` 做 block 发现，依赖 `blocks-runtime` 执行单 step。
+  - 保持轻量编排，不演化为复杂工作流引擎。
 - `blocks-cli`
   - 负责参数解析和调用下层 crate。
   - 不复制契约校验或目录扫描逻辑。
@@ -27,6 +32,10 @@
 ```text
 blocks-cli -> blocks-registry
 blocks-cli -> blocks-runtime
+blocks-cli -> blocks-composer
+blocks-composer -> blocks-registry
+blocks-composer -> blocks-runtime
+blocks-composer -> blocks-contract
 blocks-registry -> blocks-contract
 blocks-runtime -> blocks-contract
 ```
@@ -36,6 +45,7 @@ blocks-runtime -> blocks-contract
 - `blocks-contract` 依赖任何上层 crate
 - `blocks-registry` 依赖 `blocks-runtime`
 - `blocks-runtime` 依赖 `blocks-registry`（至少在第一阶段前半段不允许）
+- `blocks-composer` 反向承载 block 实现代码
 - 任意核心逻辑回流到 CLI
 
 ## 公共类型归属
@@ -43,6 +53,7 @@ blocks-runtime -> blocks-contract
 - 契约模型、字段 schema、校验问题、契约加载错误：放在 `blocks-contract`
 - 发现结果、注册条目、目录扫描错误：放在 `blocks-registry`
 - 执行记录、运行错误、后续日志模型：放在 `blocks-runtime`
+- 组合清单、bind 校验、执行计划和组合错误：放在 `blocks-composer`
 - 纯展示和退出码：放在 `blocks-cli`
 
 原则：公共类型只放在最低合理层，避免同一概念在多个 crate 重复定义。
@@ -58,15 +69,15 @@ blocks-runtime -> blocks-contract
 ```text
 blocks-contract::ContractLoadError
 blocks-registry::RegistryError -> wraps ContractLoadError / io::Error
-blocks-cli::CliError -> prints RegistryError
+blocks-runtime::RuntimeError -> wraps validation / execution errors
+blocks-composer::ComposeError -> wraps registry / runtime level failures
+blocks-cli::CliError -> prints lower-level errors
 ```
 
 ## 当前非目标
 
-- 不在这一轮引入 `composer`
 - 不在这一轮引入远程 registry
-- 不在这一轮引入复杂执行模型
+- 不在这一轮引入复杂控制流（并行、分支、恢复图）
 - 不在这一轮引入前端耦合
 
 这份草图是 P0 的架构基线；后续新增 crate 或跨层引用前，应先修改本文件再实现。
-

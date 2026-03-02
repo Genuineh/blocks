@@ -1,0 +1,14 @@
+id: core.json.transform
+name: JSON Transform
+version: 0.1.0
+status: draft
+purpose: Perform a minimal JSON transform by returning the provided object as `result`.
+input_schema:
+  source:
+    type: object
+    required: true
+output_schema:
+  result:
+    type: object
+    required: true
+

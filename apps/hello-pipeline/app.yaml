@@ -1,0 +1,24 @@
+name: hello-pipeline
+entry: main
+input_schema:
+  path:
+    type: string
+    required: true
+  text:
+    type: string
+    required: true
+flows:
+  - id: main
+    steps:
+      - id: write
+        block: core.fs.write_text
+      - id: read
+        block: core.fs.read_text
+    binds:
+      - from: input.path
+        to: write.path
+      - from: input.text
+        to: write.text
+      - from: write.path
+        to: read.path
+

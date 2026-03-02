@@ -17,6 +17,8 @@ pub struct BlockContract {
     pub purpose: Option<String>,
     #[serde(default)]
     pub input_schema: BTreeMap<String, FieldSchema>,
+    #[serde(default)]
+    pub output_schema: BTreeMap<String, FieldSchema>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -62,19 +64,36 @@ impl BlockContract {
     }
 
     pub fn validate_input(&self, input: &Value) -> Result<(), Vec<ValidationIssue>> {
-        let Some(object) = input.as_object() else {
+        Self::validate_against_schema(&self.input_schema, input)
+    }
+
+    pub fn validate_output(&self, output: &Value) -> Result<(), Vec<ValidationIssue>> {
+        Self::validate_against_schema(&self.output_schema, output)
+    }
+
+    fn validate_against_schema(
+        schema: &BTreeMap<String, FieldSchema>,
+        value: &Value,
+    ) -> Result<(), Vec<ValidationIssue>> {
+        if schema.is_empty() {
+            return Ok(());
+        }
+
+        let Some(object) = value.as_object() else {
             return Err(vec![ValidationIssue {
                 path: "$".to_string(),
-                message: "input must be a JSON object".to_string(),
+                message: "value must be a JSON object".to_string(),
             }]);
         };
 
         let mut issues = Vec::new();
 
-        for (field_name, schema) in &self.input_schema {
+        for (field_name, field_schema) in schema {
             match object.get(field_name) {
-                Some(value) => schema.validate(field_name, value, &mut issues),
-                None if schema.required => issues.push(ValidationIssue {
+                Some(current_value) => {
+                    field_schema.validate(field_name, current_value, &mut issues)
+                }
+                None if field_schema.required => issues.push(ValidationIssue {
                     path: field_name.clone(),
                     message: "missing required field".to_string(),
                 }),
@@ -95,7 +114,7 @@ impl FieldSchema {
         if !self.field_type.matches(value) {
             issues.push(ValidationIssue {
                 path: field_name.to_string(),
-                message: format!("expected {:?}", self.field_type).to_lowercase(),
+                message: format!("expected {}", self.field_type.as_str()),
             });
             return;
         }
@@ -132,6 +151,17 @@ impl FieldSchema {
 }
 
 impl ValueType {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::String => "string",
+            Self::Number => "number",
+            Self::Integer => "integer",
+            Self::Boolean => "boolean",
+            Self::Object => "object",
+            Self::Array => "array",
+        }
+    }
+
     fn matches(self, value: &Value) -> bool {
         match self {
             Self::String => value.is_string(),

@@ -1,0 +1,18 @@
+id: core.fs.write_text
+name: Write Text File
+version: 0.1.0
+status: draft
+purpose: Write UTF-8 text to a file on disk.
+input_schema:
+  path:
+    type: string
+    required: true
+    min_length: 1
+  text:
+    type: string
+    required: true
+output_schema:
+  path:
+    type: string
+    required: true
+

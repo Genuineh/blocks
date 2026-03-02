@@ -1,0 +1,19 @@
+name: echo-pipeline
+entry: main
+input_schema:
+  text:
+    type: string
+    required: true
+flows:
+  - id: main
+    steps:
+      - id: first
+        block: demo.echo
+      - id: second
+        block: demo.echo
+    binds:
+      - from: input.text
+        to: first.text
+      - from: first.text
+        to: second.text
+
