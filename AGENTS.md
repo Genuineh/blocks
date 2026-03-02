@@ -12,6 +12,7 @@ Required documentation layout:
 - `docs/specs/`: formal specs, contracts, and repository rules.
 - `docs/whitepapers/`: long-form rationale and vision.
 - `docs/decisions/`: durable architecture decisions when tradeoffs matter.
+- `docs/archive/`: retired, superseded, or historical documents kept for traceability.
 - `README.md`: top-level index and project entry point.
 - `CHANGELOG.md`: notable milestone or release changes after implementation starts shipping.
 - `LICENSE`: must stay at the repository root.
@@ -26,6 +27,28 @@ Planned code layout:
 - `skills/`: AI operating guides.
 
 If any document moves, add or update links in the same change, including `README.md`.
+
+## Archive Rules
+
+- Archive documents when they are superseded, completed and no longer active, structurally outdated, or kept only for history.
+- Archive does not mean delete. Preserve the file, move it to `docs/archive/`, and keep the filename descriptive.
+- Add a short note at the top of the archived file stating why it was archived, what replaced it, and the archive date.
+- If a document is replaced, the active replacement must link back to the archived version when historical context matters.
+
+When archiving a document, update related files in the same change:
+
+- `README.md`: remove or relabel active links.
+- `docs/TODO.md`: remove closed items or mark them as completed/replaced.
+- `docs/prds/`: replace references to archived plans with the active plan.
+- `docs/guide/`: remove obsolete usage paths and point to the current workflow.
+- `docs/decisions/` or `CHANGELOG.md`: record the change when the archive reflects a meaningful project milestone or decision.
+
+Archive timing:
+
+- Immediately after a document is replaced by a newer canonical version.
+- When a plan is finished and no longer drives active work.
+- When a guide, draft, or note no longer matches the current repository structure.
+- During major restructures, before stale docs can confuse active contributors.
 
 ## Development Workflow
 
