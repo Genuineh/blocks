@@ -16,9 +16,18 @@ pub struct BlockContract {
     #[serde(default)]
     pub purpose: Option<String>,
     #[serde(default)]
+    pub implementation: Option<BlockImplementation>,
+    #[serde(default)]
     pub input_schema: BTreeMap<String, FieldSchema>,
     #[serde(default)]
     pub output_schema: BTreeMap<String, FieldSchema>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BlockImplementation {
+    pub kind: ImplementationKind,
+    pub entry: String,
+    pub target: ImplementationTarget,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -44,6 +53,21 @@ pub enum ValueType {
     Boolean,
     Object,
     Array,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ImplementationKind {
+    Rust,
+    TauriTs,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ImplementationTarget {
+    Backend,
+    Frontend,
+    Shared,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

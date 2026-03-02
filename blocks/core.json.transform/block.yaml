@@ -3,6 +3,10 @@ name: JSON Transform
 version: 0.1.0
 status: draft
 purpose: Perform a minimal JSON transform by returning the provided object as `result`.
+implementation:
+  kind: rust
+  entry: crates/blocks-cli/src/main.rs
+  target: shared
 input_schema:
   source:
     type: object
@@ -11,4 +15,3 @@ output_schema:
   result:
     type: object
     required: true
-

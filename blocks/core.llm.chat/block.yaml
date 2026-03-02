@@ -3,6 +3,10 @@ name: LLM Chat
 version: 0.1.0
 status: draft
 purpose: Produce a text response from a prompt.
+implementation:
+  kind: rust
+  entry: crates/blocks-cli/src/main.rs
+  target: shared
 input_schema:
   prompt:
     type: string
@@ -18,4 +22,3 @@ output_schema:
   text:
     type: string
     required: true
-

@@ -21,6 +21,25 @@ fn rejects_invalid_yaml_contract() {
 }
 
 #[test]
+fn parses_implementation_metadata() {
+    let contract = BlockContract::from_yaml_str(
+        r#"
+id: demo.echo
+implementation:
+  kind: rust
+  entry: crates/blocks-cli/src/main.rs
+  target: shared
+"#,
+    )
+    .expect("contract should parse");
+
+    let implementation = contract
+        .implementation
+        .expect("implementation metadata should exist");
+    assert_eq!(implementation.entry, "crates/blocks-cli/src/main.rs");
+}
+
+#[test]
 fn reports_missing_required_fields() {
     let contract = BlockContract::from_yaml_str(sample_contract()).expect("contract should parse");
 

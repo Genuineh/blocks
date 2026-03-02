@@ -16,9 +16,13 @@ If the work is app-specific glue, keep it in the app manifest instead of creatin
 ## Current Ground Rules
 
 - Keep the block minimal and contract-first.
+- Treat `block.yaml` as a descriptor only.
 - Prefer explicit structured input and output.
 - Add tests before or with the implementation.
-- If the block needs runtime support today, wire it into the current `CliBlockRunner`.
+- The actual capability must live in code:
+  - `Rust` for backend or shared library blocks
+  - `Tauri + TS` for frontend-only blocks
+- If the block needs runtime support today, wire it into the current Rust runner or the future frontend launcher.
 
 ## Workflow
 
@@ -32,26 +36,33 @@ If the work is app-specific glue, keep it in the app manifest instead of creatin
    - `version`
    - `status`
    - `purpose`
+   - `implementation.kind`
+   - `implementation.entry`
+   - `implementation.target`
    - `input_schema`
    - `output_schema`
 4. Add `README.md` with the block purpose and the expected result.
-5. If the block must execute in the current MVP, add the smallest implementation to:
+5. Add the actual implementation in code:
+   - Rust block: repository Rust code or a Rust crate/module
+   - Frontend block: Tauri + TS code
+6. If the block must execute in the current MVP baseline, add the smallest temporary executor to:
    `crates/blocks-cli/src/main.rs`
-6. Add or extend tests that prove:
+7. Add or extend tests that prove:
    - invalid input fails
    - valid input succeeds
    - invalid output is rejected if relevant
-7. Run:
+8. Run:
    - `cargo fmt --all`
    - `cargo test`
-8. Verify discovery:
+9. Verify discovery:
    `cargo run -p blocks-cli -- show blocks <block-id>`
 
 ## Acceptance Checklist
 
 - The block has one clear responsibility.
+- `block.yaml` does not contain implementation logic.
 - Required fields are explicit in `block.yaml`.
 - Input and output schemas are both present.
+- The implementation type matches the target (`rust` for backend/shared, `tauri_ts` for frontend).
 - The implementation does not move contract or registry logic into the CLI.
 - Tests cover at least one failure path and one success path.
-

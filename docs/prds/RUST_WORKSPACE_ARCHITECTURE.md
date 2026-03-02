@@ -2,12 +2,12 @@
 
 ## 目标
 
-为第一阶段 MVP 固定最小 Rust workspace 边界，确保 `contract / registry / runtime / cli` 四层职责清晰、依赖单向、错误可追踪。
+为第一阶段 MVP 固定最小 Rust workspace 边界，确保 `contract / registry / runtime / composer / cli` 职责清晰、依赖单向、错误可追踪，并为后续 app 启动器代码留出清晰边界。
 
 ## Crate 边界
 
 - `blocks-contract`
-  - 负责 `block.yaml` 的解析、最小契约模型、输入校验、标准校验问题结构。
+  - 负责 `block.yaml` 的解析、最小契约模型、实现类型声明、输入校验、标准校验问题结构。
   - 不负责文件扫描、执行调度或 CLI。
 - `blocks-registry`
   - 负责扫描本地 `blocks/*/block.yaml`、索引 block、提供 list/show/search 所需数据。
@@ -18,12 +18,19 @@
   - 当前负责单 block 的执行胶水：输入校验、执行调用、输出校验。
   - 不负责目录扫描和组合编排。
 - `blocks-composer`
-  - 负责 `app.yaml` 的解析、bind 校验、类型匹配和串行组合执行。
+  - 负责 `app.yaml` 的解析、bind 校验、类型匹配和临时串行组合验证。
   - 依赖 `blocks-registry` 做 block 发现，依赖 `blocks-runtime` 执行单 step。
   - 保持轻量编排，不演化为复杂工作流引擎。
+  - 在目标架构里，它是过渡验证层，不是最终 app 运行入口。
 - `blocks-cli`
   - 负责参数解析和调用下层 crate。
   - 不复制契约校验或目录扫描逻辑。
+
+App 层约束：
+
+- app 最终应由 Rust 启动器代码承载。
+- 若存在前端，则前端入口由 Tauri + TS 启动器承载。
+- `blocks-composer` 可以辅助校验或生成，但不能替代这些启动器。
 
 ## 依赖方向
 

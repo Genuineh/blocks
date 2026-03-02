@@ -3,6 +3,10 @@ name: Demo Echo
 version: 0.1.0
 status: draft
 purpose: Echo a text payload for local registry and CLI smoke testing.
+implementation:
+  kind: rust
+  entry: crates/blocks-cli/src/main.rs
+  target: shared
 input_schema:
   text:
     type: string

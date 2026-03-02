@@ -3,6 +3,10 @@ name: Read Text File
 version: 0.1.0
 status: draft
 purpose: Read a UTF-8 text file from disk.
+implementation:
+  kind: rust
+  entry: crates/blocks-cli/src/main.rs
+  target: shared
 input_schema:
   path:
     type: string
@@ -12,4 +16,3 @@ output_schema:
   text:
     type: string
     required: true
-

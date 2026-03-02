@@ -55,8 +55,11 @@
 
 - 后端核心全部用 `Rust`，保证类型约束、可执行验证、交付为单二进制更容易。
 - 前端端侧用 `Tauri + TypeScript`，用于组装前端能力 block，并承载前端交互、预览和调试；底层契约、发现与运行时逻辑仍由 Rust 核心负责。
+- `block.yaml` 只是描述文件，不是实现文件；真正的 block 能力必须由 `Rust` 或 `Tauri + TS` 代码承载。
+- `Rust` block 本质上是库能力，可应用于后端、共享逻辑，必要时也可承载前端共享库逻辑。
+- `Tauri + TS` block 是前端能力，只能在前端启动器中运行。
 - 第一阶段不做复杂分布式运行时，不做远程仓库，不做在线注册中心。
-- 第一阶段也不做完整 `BCL` 编译器，只做一个更轻的组合清单格式。
+- 第一阶段也不做完整 `BCL` 编译器，只做一个更轻的描述与验证层。
 
 ### 最小架构
 
@@ -78,27 +81,34 @@ blocks/
     create-block.md
     compose-app.md
   apps/
-    studio/       # Tauri + TS frontend block composer
-  examples/
-    hello-pipeline/
+    <app-name>/
+      app.yaml          # optional descriptor / validation metadata
+      backend/
+        Cargo.toml
+        src/main.rs     # Rust launcher
+      frontend/         # optional
+        src-tauri/
+        src/            # Tauri + TS launcher
 ```
 
-这个结构有一个硬约束：`cli` 和未来的 `tauri` 不能反向承载核心契约、registry 或底层运行逻辑；核心复杂度必须收敛在可测试的 Rust crate 中。`tauri` 负责的是前端能力 block 的组装与交互层，而不是替代核心后端。
+这个结构有一个硬约束：`block.yaml` 只描述，不承载实现；`app.yaml` 只描述 app 使用了哪些 block 和哪些约束，不能替代真正的 app 启动代码。实际对外提供能力的，是 app 内的 Rust 启动器和可选的 Tauri + TS 前端启动器。
 
 ### 运行模型
 
-第一阶段把系统收敛成 4 个核心对象：
+第一阶段把系统收敛成 5 个核心对象：
 
 - `Block Contract`：`block.yaml`，定义输入、输出、前后置条件、失败策略。
-- `Block Implementation`：Rust 实现，暴露统一执行接口。
+- `Block Implementation`：由 `Rust` 或 `Tauri + TS` 代码实现具体能力。
 - `Registry`：扫描本地 `blocks/` 目录，发现可用 block。
 - `Runtime`：按契约执行 block，做验证、日志、失败恢复。
+- `App Launcher`：用 Rust 和可选的 Tauri + TS 代码启动 app，并在代码中组织 block 调用。
 
 为了控制复杂度，第一阶段还需要遵守三条架构约束：
 
 - `Contract` 负责定义和验证，不负责执行。
 - `Registry` 负责发现和索引，不负责调度。
 - `Runtime` 负责执行胶水，不承载具体 block 业务。
+- `App Launcher` 才是 app 的真实运行入口；app 逻辑应写在启动器代码中，而不是只写在描述文件中。
 
 ## 第一阶段 MVP
 
@@ -123,8 +133,8 @@ blocks/
 4. 可执行 Runtime
 5. 一个可用的 `blocks` CLI
 6. 两份给 AI 使用的 `skills`
-7. 一个由 blocks 组装成的独立示例程序
-8. 一个最小 Tauri + TS 前端 block 组装界面
+7. 一个由 Rust 启动器承载的独立示例程序
+8. 一个最小 Tauri + TS 前端启动器示例（用于前端能力 block）
 
 ### 第一阶段必须实现的能力
 
@@ -235,9 +245,9 @@ runtime.execute("core.http.get", input)
 - 输出校验失败时能阻断成功结果
 - `retry_once` 不会无限重试
 
-#### 4. Composer（轻量组合清单，不是 BCL）
+#### 4. Composer（轻量描述与验证层，不是最终 app 运行时）
 
-为了让 AI 能先“组装程序”，第一阶段需要一个极简组合格式，但不要上升到完整语言。
+为了让 AI 能先描述 block 之间的关系，第一阶段可以保留一个极简组合格式；但它不应被视为最终 app 运行时。
 
 建议使用 `app.yaml`：
 
@@ -269,13 +279,14 @@ flows:
 - 解析组合清单
 - 校验步骤引用的 block 是否存在
 - 校验基础绑定是否存在、类型是否兼容
-- 交给 runtime 顺序执行
+- 作为生成或校验 app 启动器代码的辅助输入
 
-这一步本质上是“BCL 前的过渡层”。
+这一步本质上是“BCL 前的过渡层”，也是“代码启动器前的验证层”，不是 app 本身。
 
 架构约束：
 
-- `composer` 只产出执行计划，不直接承载 block 实现
+- `composer` 只产出描述、校验结果或辅助执行计划，不直接承载 block 实现
+- `composer` 不能替代 app 的 Rust / Tauri 启动器
 - `composer` 不引入复杂控制流，保持为 BCL 的过渡层
 
 测试要求：
@@ -368,9 +379,9 @@ CLI 是第一阶段真正的产品入口，比桌面 UI 更重要。
 
 这两份文档就是第一阶段“AI 可稳定使用”的真正杠杆。
 
-#### 8. 最小 Tauri 前端 Block 组装器
+#### 8. 最小 Tauri 前端 Block 启动器
 
-第一阶段中，`Tauri + TS` 的职责不是单纯做桌面壳，而是作为前端技术栈去组装前端能力 block；同时仍然不能主导核心架构。
+第一阶段中，`Tauri + TS` 的职责不是单纯做桌面壳，而是作为前端技术栈去启动前端能力 block；前端功能编排也应写在前端启动器代码中。
 
 建议页面只包含：
 
@@ -386,8 +397,8 @@ CLI 是第一阶段真正的产品入口，比桌面 UI 更重要。
 
 架构约束：
 
-- Tauri 必须复用 CLI / runtime 所在核心能力
-- 前端负责前端能力 block 的组合与交互，不是新的底层业务层
+- Tauri 必须复用核心契约和可共享能力定义
+- 前端负责前端能力 block 的启动与交互，不是新的底层业务层
 
 ### 第一阶段推荐目录结构
 
@@ -416,7 +427,7 @@ apps/
 4. 可以执行 `blocks run <block-id>`，且运行前后有契约校验。
 5. 可以执行 `blocks compose run apps/hello-pipeline/app.yaml` 顺序跑通一个小程序。
 6. 失败时至少能输出结构化错误，并触发最小恢复策略。
-7. Tauri + TS 界面能完成最小前端能力 block 组装，并触发上述核心动作。
+7. 至少一个 app 能通过 Rust 启动器对外提供功能；若包含前端，则由 Tauri + TS 启动器承载前端能力 block。
 
 补充严格验收门槛：
 
@@ -563,26 +574,26 @@ apps/
 顺序：
 
 1. 先写 `app.yaml` 绑定与校验失败测试
-2. 做 `app.yaml` 组合执行
+2. 做 `app.yaml` 描述与校验
 3. 做 5 个核心 blocks
-4. 做 `hello-pipeline` 示例
+4. 用 Rust 启动器做 `hello-pipeline` 示例
 5. 写两份 skills
 
 这个阶段结束时，项目已经具备对外演示价值。
 
-### 里程碑三：接入 Tauri 前端 Block 组装器
+### 里程碑三：接入 Tauri 前端 Block 启动器
 
-用 `Tauri + TS` 组装最小前端能力 block，并复用现有 Rust 核心能力：
+用 `Tauri + TS` 启动最小前端能力 block，并复用现有 Rust 核心能力：
 
 1. 浏览 blocks
 2. 查看 contract
-3. 组合前端 block
-4. 运行或预览组合结果
+3. 启动前端 block
+4. 运行或预览前端结果
 5. 查看日志
 
 不要先做复杂前端工作流编辑器。
 
-进入本里程碑前，先确认前端只负责组装与交互，避免前端反向定义核心契约和执行行为。
+进入本里程碑前，先确认前端只负责前端启动与交互，避免前端反向定义核心契约和执行行为。
 
 ### 里程碑四：推进 BCL
 

@@ -17,6 +17,11 @@
 
 一个 `block` 是一个面向 AI 的最小可用能力单元，用于完成一项明确、单一、可验证的产出。
 
+一个完整 `block` 由两部分组成：
+
+- 描述层：`block.yaml`，只负责声明契约、实现类型、适用端和验证要求。
+- 实现层：具体代码文件，当前应使用 `Rust` 或 `Tauri + TypeScript` 承载。
+
 ### 2.2 契约
 
 契约是对一个 `block` 的输入、输出、约束、成功标准、失败边界和副作用的正式定义。
@@ -71,6 +76,13 @@
 
 `block` `MUST` 具备可被其他 `block` 编排调用的输入输出结构，不能依赖难以控制的隐性状态。
 
+### 4.7 实现与描述分离
+
+`block.yaml` `MUST` 只是描述文件，不能被视为功能实现本身。实际能力 `MUST` 由代码承载：
+
+- `Rust` 实现可用于后端、前端共享逻辑或通用库能力。
+- `Tauri + TypeScript` 实现仅用于前端能力。
+
 ## 5. block 标准契约
 
 每个 `block` `MUST` 定义一份标准契约。标准契约至少包含以下字段。
@@ -101,20 +113,31 @@
 - `output_schema`：输出结构、类型、格式要求。
 - `postconditions`：成功执行后必须成立的结果条件。
 
-### 5.5 执行约束
+### 5.5 实现声明
+
+- `implementation.kind`：实现类型，当前推荐 `rust` 或 `tauri_ts`。
+- `implementation.entry`：实现入口，例如 Rust 模块或前端入口文件。
+- `implementation.target`：适用端，推荐 `backend`、`frontend` 或 `shared`。
+
+规则：
+
+- 当 `implementation.kind = rust` 时，`implementation.target` 可以是 `backend`、`shared`，也可以是面向前端的共享库逻辑。
+- 当 `implementation.kind = tauri_ts` 时，`implementation.target` `MUST` 为 `frontend`。
+
+### 5.6 执行约束
 
 - `dependencies`：运行依赖。
 - `side_effects`：可能产生的副作用。
 - `timeouts`：超时约束。
 - `resource_limits`：资源使用限制。
 
-### 5.6 失败契约
+### 5.7 失败契约
 
 - `failure_modes`：可预期失败类型。
 - `error_codes`：标准错误码或标准错误类别。
 - `recovery_strategy`：失败后的恢复或回退方式。
 
-### 5.7 验证与评估
+### 5.8 验证与评估
 
 - `verification`：如何验证功能正确性。
 - `evaluation`：如何评估结果质量。
@@ -128,7 +151,10 @@
 blocks/<block-id>/
   block.yaml
   README.md
-  src/
+  rust/          # optional
+    src/
+  tauri_ts/      # optional
+    src/
   tests/
   examples/
   evaluators/
@@ -139,7 +165,8 @@ blocks/<block-id>/
 
 - `block.yaml`：标准契约文件。
 - `README.md`：人类与 AI 可读说明。
-- `src/`：实现代码。
+- `rust/`：Rust 实现代码。
+- `tauri_ts/`：Tauri + TypeScript 前端实现代码。
 - `tests/`：功能验证。
 - `examples/`：最小可运行示例。
 - `evaluators/`：质量评估逻辑。
@@ -154,11 +181,14 @@ blocks/<block-id>/
 该文件 `MUST` 包含：
 
 - 基础标识
+- 实现声明
 - 输入输出定义
 - 约束定义
 - 验证定义
 - 评估定义
 - 验收标准
+
+该文件 `MUST NOT` 承载具体业务实现代码；它是描述文件，不是执行文件。
 
 ### 7.2 README.md
 
@@ -192,6 +222,12 @@ blocks/<block-id>/
 ### 8.4 幂等性说明
 
 若一个 `block` 多次执行可能产生不同结果，`MUST` 说明其幂等性条件和重复执行风险。
+
+### 8.5 实现类型约束
+
+- `Rust` block 应被视为库能力，可被后端、共享逻辑或启动器代码调用。
+- `Tauri + TypeScript` block 应被视为前端能力，只能在前端启动器或前端运行上下文中调用。
+- 任何跨端调用关系都应通过 app 启动器或明确桥接层完成，而不是由 `block.yaml` 隐式表达。
 
 ## 9. 验证规范
 

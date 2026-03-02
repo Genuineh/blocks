@@ -14,6 +14,12 @@ The current MVP composer supports only:
 
 Do not design branching, loops, or parallel execution yet.
 
+Important: the current composer is a validation and transition layer, not the final app runtime model.
+
+- `block` should be treated like a library.
+- Real app behavior should live in Rust launcher code and, when there is a frontend, Tauri + TS launcher code.
+- `app.yaml` may describe or validate the intended composition, but it should not be the only place where app logic exists.
+
 ## Workflow
 
 1. List current blocks:
@@ -33,7 +39,11 @@ Do not design branching, loops, or parallel execution yet.
 7. Add:
    - `apps/<app-name>/input.example.json`
    - `apps/<app-name>/README.md`
-8. Run:
+8. Implement the real app entrypoints:
+   - `apps/<app-name>/backend/src/main.rs`
+   - `apps/<app-name>/frontend/` when frontend exists
+9. Use `app.yaml` as a composition descriptor or validation aid.
+10. Run:
    `cargo run -p blocks-cli -- compose run blocks apps/<app-name>/app.yaml apps/<app-name>/input.example.json`
 
 ## Debug Rules
@@ -48,4 +58,4 @@ Do not design branching, loops, or parallel execution yet.
 - Each bind is explicit and traceable.
 - The app runs with the example input.
 - The manifest uses reusable blocks instead of app-specific hidden logic.
-
+- The real app logic is prepared to move into launcher code, not stay only in the manifest.
