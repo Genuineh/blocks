@@ -1,0 +1,21 @@
+id: core.llm.chat
+name: LLM Chat
+version: 0.1.0
+status: draft
+purpose: Produce a text response from a prompt.
+input_schema:
+  prompt:
+    type: string
+    required: true
+    min_length: 1
+  system:
+    type: string
+    required: false
+  model:
+    type: string
+    required: false
+output_schema:
+  text:
+    type: string
+    required: true
+

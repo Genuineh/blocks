@@ -1,5 +1,7 @@
 use std::env;
 use std::fs;
+use std::io::{Read, Write};
+use std::net::TcpStream;
 use std::process::ExitCode;
 
 use blocks_composer::{AppManifest, Composer};
@@ -146,6 +148,8 @@ impl BlockRunner for CliBlockRunner {
                     .ok_or_else(|| BlockExecutionError::new("missing object field: source"))?;
                 Ok(json!({ "result": source }))
             }
+            "core.http.get" => run_core_http_get(input),
+            "core.llm.chat" => run_core_llm_chat(input),
             _ => Err(BlockExecutionError::new(format!(
                 "no executor registered for block: {block_id}"
             ))),
@@ -153,9 +157,94 @@ impl BlockRunner for CliBlockRunner {
     }
 }
 
+fn run_core_http_get(input: &Value) -> Result<Value, BlockExecutionError> {
+    let url = input
+        .get("url")
+        .and_then(Value::as_str)
+        .ok_or_else(|| BlockExecutionError::new("missing string field: url"))?;
+
+    let (host, port, path) = parse_plain_http_url(url)?;
+    let mut stream = TcpStream::connect((host.as_str(), port)).map_err(|error| {
+        BlockExecutionError::new(format!("failed to connect to {host}:{port}: {error}"))
+    })?;
+
+    let request = format!("GET {path} HTTP/1.1\r\nHost: {host}\r\nConnection: close\r\n\r\n");
+    stream.write_all(request.as_bytes()).map_err(|error| {
+        BlockExecutionError::new(format!("failed to write request to {host}:{port}: {error}"))
+    })?;
+
+    let mut buffer = Vec::new();
+    stream.read_to_end(&mut buffer).map_err(|error| {
+        BlockExecutionError::new(format!(
+            "failed to read response from {host}:{port}: {error}"
+        ))
+    })?;
+
+    let response = String::from_utf8_lossy(&buffer);
+    let (head, body) = response
+        .split_once("\r\n\r\n")
+        .ok_or_else(|| BlockExecutionError::new("invalid HTTP response"))?;
+    let status = head
+        .lines()
+        .next()
+        .and_then(|line| line.split_whitespace().nth(1))
+        .and_then(|value| value.parse::<u16>().ok())
+        .ok_or_else(|| BlockExecutionError::new("invalid HTTP status line"))?;
+
+    Ok(json!({
+        "status": status,
+        "body": body,
+    }))
+}
+
+fn run_core_llm_chat(input: &Value) -> Result<Value, BlockExecutionError> {
+    let prompt = input
+        .get("prompt")
+        .and_then(Value::as_str)
+        .ok_or_else(|| BlockExecutionError::new("missing string field: prompt"))?;
+
+    Ok(json!({
+        "text": prompt,
+    }))
+}
+
+fn parse_plain_http_url(url: &str) -> Result<(String, u16, String), BlockExecutionError> {
+    let rest = url.strip_prefix("http://").ok_or_else(|| {
+        BlockExecutionError::new("only plain http:// URLs are supported in the current MVP runner")
+    })?;
+
+    let (host_port, path) = match rest.split_once('/') {
+        Some((host_port, path)) => (host_port, format!("/{path}")),
+        None => (rest, "/".to_string()),
+    };
+
+    if host_port.is_empty() {
+        return Err(BlockExecutionError::new("missing host in url"));
+    }
+
+    let (host, port) = match host_port.split_once(':') {
+        Some((host, port)) => {
+            let port = port
+                .parse::<u16>()
+                .map_err(|_| BlockExecutionError::new("invalid port in url"))?;
+            (host.to_string(), port)
+        }
+        None => (host_port.to_string(), 80),
+    };
+
+    if host.is_empty() {
+        return Err(BlockExecutionError::new("missing host in url"));
+    }
+
+    Ok((host, port, path))
+}
+
 #[cfg(test)]
 mod tests {
     use std::fs;
+    use std::io::{Read, Write};
+    use std::net::TcpListener;
+    use std::thread;
 
     use tempfile::TempDir;
 
@@ -385,5 +474,103 @@ output_schema:
 
         assert!(output.contains("\"result\""));
         assert!(output.contains("\"name\": \"blocks\""));
+    }
+
+    #[test]
+    fn runs_core_http_get_block_against_local_server() {
+        let temp_dir = TempDir::new().expect("temp dir should be created");
+        let blocks_root = temp_dir.path().join("blocks");
+        let block_dir = blocks_root.join("core.http.get");
+        fs::create_dir_all(&block_dir).expect("http block dir should be created");
+        fs::write(
+            block_dir.join("block.yaml"),
+            r#"
+id: core.http.get
+name: HTTP Get
+input_schema:
+  url:
+    type: string
+    required: true
+output_schema:
+  status:
+    type: integer
+    required: true
+  body:
+    type: string
+    required: true
+"#,
+        )
+        .expect("http block contract should be written");
+
+        let listener = TcpListener::bind("127.0.0.1:0").expect("listener should bind");
+        let address = listener.local_addr().expect("local addr should exist");
+
+        let server = thread::spawn(move || {
+            let (mut stream, _) = listener.accept().expect("connection should be accepted");
+            let mut request = [0_u8; 1024];
+            let _ = stream.read(&mut request);
+            stream
+                .write_all(
+                    b"HTTP/1.1 200 OK\r\nContent-Length: 11\r\nConnection: close\r\n\r\nhello world",
+                )
+                .expect("response should be written");
+        });
+
+        let input_path = temp_dir.path().join("input.json");
+        fs::write(
+            &input_path,
+            format!(r#"{{ "url": "http://{}/" }}"#, address),
+        )
+        .expect("input should be written");
+
+        let output = run(vec![
+            "run".to_string(),
+            blocks_root.display().to_string(),
+            "core.http.get".to_string(),
+            input_path.display().to_string(),
+        ])
+        .expect("http get should succeed");
+
+        server.join().expect("server thread should complete");
+
+        assert!(output.contains("\"status\": 200"));
+        assert!(output.contains("hello world"));
+    }
+
+    #[test]
+    fn runs_core_llm_chat_block() {
+        let temp_dir = TempDir::new().expect("temp dir should be created");
+        let blocks_root = temp_dir.path().join("blocks");
+        let block_dir = blocks_root.join("core.llm.chat");
+        fs::create_dir_all(&block_dir).expect("llm block dir should be created");
+        fs::write(
+            block_dir.join("block.yaml"),
+            r#"
+id: core.llm.chat
+name: LLM Chat
+input_schema:
+  prompt:
+    type: string
+    required: true
+output_schema:
+  text:
+    type: string
+    required: true
+"#,
+        )
+        .expect("llm block contract should be written");
+
+        let input_path = temp_dir.path().join("input.json");
+        fs::write(&input_path, r#"{ "prompt": "hello model" }"#).expect("input should be written");
+
+        let output = run(vec![
+            "run".to_string(),
+            blocks_root.display().to_string(),
+            "core.llm.chat".to_string(),
+            input_path.display().to_string(),
+        ])
+        .expect("llm chat should succeed");
+
+        assert!(output.contains("\"text\": \"hello model\""));
     }
 }

@@ -1,0 +1,18 @@
+id: core.http.get
+name: HTTP Get
+version: 0.1.0
+status: draft
+purpose: Perform a minimal HTTP GET request and return status and body.
+input_schema:
+  url:
+    type: string
+    required: true
+    min_length: 8
+output_schema:
+  status:
+    type: integer
+    required: true
+  body:
+    type: string
+    required: true
+

@@ -10,7 +10,7 @@
 ## 当前进度
 
 - `P0`：已完成。Rust workspace、架构草图、`blocks-contract`、`blocks-registry`、最小 CLI 和本地扫描已落地并通过测试。
-- `P1`：已完成。已完成 `blocks-runtime` 最小执行闭环、`blocks run`、`app.yaml` 串行组合执行、`blocks compose run`，并落地 3 个最小核心 block。
+- `P1`：已完成。已完成 `blocks-runtime` 最小执行闭环、`blocks run`、`app.yaml` 串行组合执行、`blocks compose run`，并落地 5 个最小核心 block。
 - `P2`：进行中。已完成技能文档和 `hello-pipeline` 示例，待在后续真实新增 block 中持续验证复用性。
 - `P3`：未开始。
 
@@ -41,7 +41,7 @@ P0 验收：
 - [x] 实现 `blocks run <block-id>` 的最小执行闭环，包含输入校验、执行、输出校验和结构化日志。
 - [x] 先为 `app.yaml` 组合执行写绑定缺失、类型不兼容、串行成功的测试，再实现轻量编排。
 - [x] 实现轻量 `app.yaml` 组合执行能力，先支持串行 `steps + binds`。
-- [x] 补齐最小核心 block 集合（当前已完成 3 个）：`core.fs.read_text`、`core.fs.write_text`、`core.json.transform`；`core.http.get`、`core.llm.chat` 作为后续扩展。
+- [x] 补齐最小核心 block 集合（当前已完成 5 个）：`core.fs.read_text`、`core.fs.write_text`、`core.json.transform`、`core.http.get`、`core.llm.chat`。
 
 P1 验收：
 
