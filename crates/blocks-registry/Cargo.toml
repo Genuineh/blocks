@@ -1,0 +1,13 @@
+[package]
+name = "blocks-registry"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+
+[dependencies]
+blocks-contract = { path = "../blocks-contract" }
+thiserror.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+

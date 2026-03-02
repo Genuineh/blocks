@@ -17,8 +17,6 @@ Required documentation layout:
 - `CHANGELOG.md`: notable milestone or release changes after implementation starts shipping.
 - `LICENSE`: must stay at the repository root.
 
-Current content under `docs/design/` should be treated as temporary `prds` material until the tree is normalized.
-
 Planned code layout:
 
 - `crates/`: Rust workspace crates.
@@ -27,6 +25,8 @@ Planned code layout:
 - `skills/`: AI operating guides.
 
 If any document moves, add or update links in the same change, including `README.md`.
+
+All subdirectories under `docs/` should use lowercase names.
 
 ## Archive Rules
 
@@ -63,6 +63,8 @@ Once the Rust workspace exists, use:
 - `cargo fmt --all`
 - `cargo build`
 - `cargo test`
+
+When a task is completed or meaningfully advanced, update `docs/TODO.md` in the same change. Mark progress explicitly so the TODO reflects current status, not just planned work.
 
 ## Style Rules
 

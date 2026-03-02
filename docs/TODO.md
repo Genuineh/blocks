@@ -7,6 +7,13 @@
 - 变更必须以安全迭代方式推进：优先小步提交，复用现有测试做护栏，避免跨层级的大范围无验证修改。
 - 验收从严：不以“能跑一次”为完成标准，必须满足结构合理、测试覆盖、文档同步和可维护性要求。
 
+## 当前进度
+
+- `P0`：已完成。Rust workspace、架构草图、`blocks-contract`、`blocks-registry`、最小 CLI 和本地扫描已落地并通过测试。
+- `P1`：未开始。下一步进入 `blocks-runtime` 的执行闭环和 `app.yaml` 组合执行。
+- `P2`：未开始。
+- `P3`：未开始。
+
 ## 当前最高优先级的架构问题
 
 - 固化第一阶段最小系统边界：`contract / registry / runtime / cli` 四层职责不能混叠。
@@ -15,12 +22,12 @@
 
 ## P0
 
-- 先输出 Rust workspace 的宏观架构草图：crate 边界、依赖方向、公共类型归属、错误流转路径。
-- 为 `blocks-contract` 先写失败测试，覆盖最小契约解析和输入校验，再实现基础模型。
-- 建立 Rust workspace，先落 `blocks-contract`、`blocks-registry`、`blocks-runtime`、`blocks-cli` 四个基础 crate。
-- 定义 `block.yaml` 的最小可执行契约模型，明确输入输出校验、前后置条件和标准错误结构。
-- 为 `blocks-registry` 先写目录扫描与索引失败测试，再实现本地发现。
-- 跑通本地 `blocks/` 目录扫描与 `blocks list/show/search`，先解决可发现性问题。
+- [x] 输出 Rust workspace 的宏观架构草图：crate 边界、依赖方向、公共类型归属、错误流转路径。
+- [x] 为 `blocks-contract` 先写失败测试，覆盖最小契约解析和输入校验，再实现基础模型。
+- [x] 建立 Rust workspace，先落 `blocks-contract`、`blocks-registry`、`blocks-runtime`、`blocks-cli` 四个基础 crate。
+- [x] 定义 `block.yaml` 的最小可执行契约模型，明确输入输出校验、前后置条件和标准错误结构。
+- [x] 为 `blocks-registry` 先写目录扫描与索引失败测试，再实现本地发现。
+- [x] 跑通本地 `blocks/` 目录扫描与 `blocks list/show/search`，先解决可发现性问题。
 
 P0 验收：
 
@@ -30,11 +37,11 @@ P0 验收：
 
 ## P1
 
-- 为 `blocks-runtime` 先写执行前校验失败、执行成功、执行后校验失败三类测试，再实现运行闭环。
-- 实现 `blocks run <block-id>` 的最小执行闭环，包含输入校验、执行、输出校验和结构化日志。
-- 先为 `app.yaml` 组合执行写绑定缺失、类型不兼容、串行成功的测试，再实现轻量编排。
-- 实现轻量 `app.yaml` 组合执行能力，先支持串行 `steps + binds`。
-- 补齐 3 到 5 个核心 block：`core.fs.read_text`、`core.fs.write_text`、`core.http.get`、`core.json.transform`、`core.llm.chat`。
+- [ ] 为 `blocks-runtime` 先写执行前校验失败、执行成功、执行后校验失败三类测试，再实现运行闭环。
+- [ ] 实现 `blocks run <block-id>` 的最小执行闭环，包含输入校验、执行、输出校验和结构化日志。
+- [ ] 先为 `app.yaml` 组合执行写绑定缺失、类型不兼容、串行成功的测试，再实现轻量编排。
+- [ ] 实现轻量 `app.yaml` 组合执行能力，先支持串行 `steps + binds`。
+- [ ] 补齐 3 到 5 个核心 block：`core.fs.read_text`、`core.fs.write_text`、`core.http.get`、`core.json.transform`、`core.llm.chat`。
 
 P1 验收：
 
@@ -44,10 +51,10 @@ P1 验收：
 
 ## P2
 
-- 先审视 AI 使用路径，确保 `skills` 描述的是稳定流程，而不是一次性操作说明。
-- 编写 `skills/create-block.md`，约束 AI 如何创建和验证新 block。
-- 编写 `skills/compose-app.md`，约束 AI 如何发现 block 并组装独立程序。
-- 提供 `hello-pipeline` 示例应用，验证 blocks 能组装出一个最小独立程序。
+- [ ] 先审视 AI 使用路径，确保 `skills` 描述的是稳定流程，而不是一次性操作说明。
+- [ ] 编写 `skills/create-block.md`，约束 AI 如何创建和验证新 block。
+- [ ] 编写 `skills/compose-app.md`，约束 AI 如何发现 block 并组装独立程序。
+- [ ] 提供 `hello-pipeline` 示例应用，验证 blocks 能组装出一个最小独立程序。
 
 P2 验收：
 
@@ -56,10 +63,10 @@ P2 验收：
 
 ## P3
 
-- 增加最小 Tauri Studio，用于查看 blocks、执行单 block、运行组合应用和查看日志。
-- 在第一阶段闭环稳定后，再推进最小 `BCL` parser、语义检查和编译到执行计划。
+- [ ] 增加最小 Tauri + TS 前端组装器，用于组合前端能力 block，并提供基础预览、调试和运行入口。
+- [ ] 在第一阶段闭环稳定后，再推进最小 `BCL` parser、语义检查和编译到执行计划。
 
 P3 验收：
 
-- Tauri 只是可视化壳层，不复制核心业务逻辑，不破坏现有 CLI 入口。
+- Tauri + TS 明确用于组装前端能力 block，但不复制底层契约、发现与运行时逻辑，不破坏现有 CLI 入口。
 - `BCL` 进入实现前，先完成最小语法与语义边界的架构复审，确认不引入超出 MVP 的复杂度。

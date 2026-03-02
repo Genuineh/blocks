@@ -1,0 +1,11 @@
+id: demo.echo
+name: Demo Echo
+version: 0.1.0
+status: draft
+purpose: Echo a text payload for local registry and CLI smoke testing.
+input_schema:
+  text:
+    type: string
+    required: true
+    min_length: 1
+

@@ -1,0 +1,21 @@
+[workspace]
+members = [
+  "crates/blocks-contract",
+  "crates/blocks-registry",
+  "crates/blocks-runtime",
+  "crates/blocks-cli",
+]
+resolver = "2"
+
+[workspace.package]
+edition = "2024"
+license = "MIT"
+version = "0.1.0"
+
+[workspace.dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+serde_yaml = "0.9"
+tempfile = "3.14"
+thiserror = "2.0"
+

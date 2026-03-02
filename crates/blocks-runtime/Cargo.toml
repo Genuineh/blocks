@@ -1,0 +1,9 @@
+[package]
+name = "blocks-runtime"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+
+[dependencies]
+blocks-contract = { path = "../blocks-contract" }
+

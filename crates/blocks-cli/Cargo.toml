@@ -1,0 +1,13 @@
+[package]
+name = "blocks-cli"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+
+[[bin]]
+name = "blocks"
+path = "src/main.rs"
+
+[dependencies]
+blocks-registry = { path = "../blocks-registry" }
+
