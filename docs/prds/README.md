@@ -9,5 +9,6 @@ This directory contains active plans, architecture notes, and design details tha
 - `BLOCK_DEBUG_OBSERVABILITY_FOUNDATION_PLAN.md`: baseline plan for mandatory block debuggability and observability capabilities.
 - `ARCHITECTURE_DEBT_REDUCTION_PLAN_2026Q1.md`: short-cycle plan for contract/runtime/cli architecture debt reduction.
 - `R10_PHASE1_MINIMAL_RUNTIME_BOUNDARY_PLAN.md`: R10 Phase 1 minimal landing plan for runtime boundary unification, moc-level diagnostics ownership, and taxonomy-aware error mapping.
+- `BCL_MOC_ASSIST_PLAN.md`: phased plan for establishing BCL as a moc authoring/validation assist layer without replacing moc runtime authority.
 
 When a plan is replaced or no longer active, move it to `docs/archive/` and update links in `README.md` and `docs/TODO.md`.

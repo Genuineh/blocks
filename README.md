@@ -87,10 +87,12 @@
 - [docs/prds/BLOCK_DEBUG_OBSERVABILITY_FOUNDATION_PLAN.md](./docs/prds/BLOCK_DEBUG_OBSERVABILITY_FOUNDATION_PLAN.md)：block 可调试与可观测基础能力规划，定义统一诊断与可观测基线。
 - [docs/prds/ARCHITECTURE_DEBT_REDUCTION_PLAN_2026Q1.md](./docs/prds/ARCHITECTURE_DEBT_REDUCTION_PLAN_2026Q1.md)：当前 1-2 周架构整改计划，聚焦 contract/runtime/cli 三条主线。
 - [docs/prds/R10_PHASE1_MINIMAL_RUNTIME_BOUNDARY_PLAN.md](./docs/prds/R10_PHASE1_MINIMAL_RUNTIME_BOUNDARY_PLAN.md)：R10 Phase 1 最小落地计划，聚焦 run/verify runtime 边界统一、moc 级诊断归属与 taxonomy 映射。
+- [docs/prds/BCL_MOC_ASSIST_PLAN.md](./docs/prds/BCL_MOC_ASSIST_PLAN.md)：BCL 建立规划，明确 BCL 仅辅助 moc 描述与校验，不替代运行时交付边界。
 - [docs/guide/README.md](./docs/guide/README.md)：使用说明和后续贡献流程入口。
 - [docs/decisions/README.md](./docs/decisions/README.md)：架构决策记录入口。
 - [docs/decisions/001-enforce-contract-runtime-boundary.md](./docs/decisions/001-enforce-contract-runtime-boundary.md)：contract 强校验、统一运行边界与 CLI 分层的决策记录。
 - [docs/decisions/002-r10-phase1-runtime-observability-boundary.md](./docs/decisions/002-r10-phase1-runtime-observability-boundary.md)：R10 Phase 1 最小决策，固定 runtime 观测边界统一与受控 fallback 方案。
+- [docs/decisions/003-bcl-assists-moc-not-runtime.md](./docs/decisions/003-bcl-assists-moc-not-runtime.md)：BCL MVP 边界决策，固定“辅助 moc，不替代 runtime authority”。
 - [docs/archive/README.md](./docs/archive/README.md)：历史文档与归档说明入口。
 - [docs/whitepapers/WHITEPAPER.md](./docs/whitepapers/WHITEPAPER.md)：`blocks` 的理念白皮书，解释为什么需要这种面向 AI 的基础组件。
 - [docs/whitepapers/DEVELOPMENT_WHITEPAPER.md](./docs/whitepapers/DEVELOPMENT_WHITEPAPER.md)：面向 `blocks` 能力进行项目产出的开发白皮书，定义交付方法与工程流程。
@@ -100,6 +102,7 @@
 - [docs/specs/BLOCK_DEBUG_OBSERVABILITY_FOUNDATION_SPEC.md](./docs/specs/BLOCK_DEBUG_OBSERVABILITY_FOUNDATION_SPEC.md)：block 调试与可观测基础能力技术规格，定义诊断事件、工件与 CLI 能力边界。
 - [docs/specs/ARCHITECTURE_REFACTOR_SPEC_2026Q1.md](./docs/specs/ARCHITECTURE_REFACTOR_SPEC_2026Q1.md)：contract/runtime/cli 架构整改技术规格，定义边界与实施步骤。
 - [docs/specs/R10_PHASE1_RUNTIME_BOUNDARY_SPEC.md](./docs/specs/R10_PHASE1_RUNTIME_BOUNDARY_SPEC.md)：R10 Phase 1 函数级改造规格，给出 run/verify 共享执行边界、moc diagnose 修正与 error_id 映射清单。
+- [docs/specs/BCL_MOC_MVP_SPEC.md](./docs/specs/BCL_MOC_MVP_SPEC.md)：BCL 最小技术规格，定义 grammar、语义校验、CLI 契约与渐进门禁策略。
 - [docs/whitepapers/BLOCKS_LANGUAGE_WHITEPAPER.md](./docs/whitepapers/BLOCKS_LANGUAGE_WHITEPAPER.md)：面向 AI 的 `blocks` 抽象语言白皮书，定义语言模型、基础语法、编译器与产物形态。
 - [mocs/echo-pipeline/README.md](./mocs/echo-pipeline/README.md)：当前最小 moc 示例，后端已直接依赖 `demo.echo` 的 Rust crate。
 - [mocs/hello-pipeline/README.md](./mocs/hello-pipeline/README.md)：当前最小 moc 示例，后端已直接依赖文件类 Rust block crate。

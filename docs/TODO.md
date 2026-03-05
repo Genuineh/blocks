@@ -24,6 +24,7 @@
 - `R8`：已完成。新增 `greeting-api-service` 与 `greeting-panel-web` 双 `moc` 全栈 proof slice，前端已通过真实 HTTP fetch 渲染后端返回的数据，且验证边界已明确区分自动化与手工环节。
 - `R9`：已完成。block 可调试与可观测基础能力已收口：契约校验、runtime 诊断事件与工件、CLI diagnose、首批 active block 迁移、仓库级验证路径均已落地。
 - `Block Spec Migration`：已完成当前仓库全部 `block.yaml` 向最新 `BLOCKS_SPEC` 标准契约字段集迁移，包含基础标识、能力边界、执行约束、失败契约、验证评估等补齐。
+- `BCL Planning`：已完成建立方案设计收口，并新增 `BCL` 专项 PRD/Spec/ADR，下一步进入按 phase 的最小实现与试点迁移。
 
 ## 当前最高优先级的架构问题
 
@@ -35,6 +36,7 @@
 - 当前 `moc verify` 已可定位到具体 `flow/step/bind`，但运行期 block 执行失败仍主要停留在 step 级别。
 - 当前 `counter-panel-web` 已收口共享 HTML 壳层，下一轮可以把同类壳层模式推广到更多前端 `moc`。
 - 新增架构整改计划：[`prds/ARCHITECTURE_DEBT_REDUCTION_PLAN_2026Q1.md`](prds/ARCHITECTURE_DEBT_REDUCTION_PLAN_2026Q1.md) / [`specs/ARCHITECTURE_REFACTOR_SPEC_2026Q1.md`](specs/ARCHITECTURE_REFACTOR_SPEC_2026Q1.md) / [`decisions/001-enforce-contract-runtime-boundary.md`](decisions/001-enforce-contract-runtime-boundary.md)；优先完成 contract 强校验、runtime 边界统一、CLI 分层。
+- BCL 仍缺实现层闭环；需严格按“辅助 moc，不替代 moc，不生成运行时”的边界推进，先跑通 `validate -> plan -> emit -> parity` 试点链路。
 
 ## Blocks CLI 解耦计划（按 Phase 跟踪）
 
@@ -295,6 +297,68 @@ Phase 3 验收：
 - [x] 现有 `blocks/moc` 命令兼容性回归通过。
 - [x] 关键诊断命令具备稳定 JSON 输出契约测试。
 
+## R11（BCL 建立：辅助 moc 的最小可执行路线）
+
+关联文档：
+
+- 计划：[`prds/BCL_MOC_ASSIST_PLAN.md`](prds/BCL_MOC_ASSIST_PLAN.md)
+- 规格：[`specs/BCL_MOC_MVP_SPEC.md`](specs/BCL_MOC_MVP_SPEC.md)
+- 决策：[`decisions/003-bcl-assists-moc-not-runtime.md`](decisions/003-bcl-assists-moc-not-runtime.md)
+
+R11 总边界：
+
+- `BCL` 仅辅助 `moc` 描述、校验、规范化生成；不替代 `moc` 交付模型。
+- MVP 阶段 `moc.yaml` 仍是运行权威描述，BCL 不生成 runtime/deploy 代码。
+- rollout 必须可回滚：关闭 BCL gate 后，现有 `moc run/verify/diagnose` 行为不变。
+
+### R11 Phase 1（规范冻结，已完成）
+
+- [x] 冻结 BCL-MVP 的目标与非目标（辅助 moc，不替代 runtime authority）。
+- [x] 冻结 CLI 命令形状：`blocks moc bcl validate|plan|emit`。
+- [x] 冻结 MVP grammar 与语义边界（不含版本解析、分支/循环/recover）。
+- [x] 补齐 PRD/Spec/ADR 三件套，形成可执行设计入口。
+
+Phase 1 验收：
+
+- [x] reviewer sign-off 已记录（含 `MOC_SPEC` 口径映射复核）。
+- [x] 方案已包含迁移与回滚门禁要求。
+
+### R11 Phase 2（validate 能力）
+
+- [ ] 新增 `crates/blocks-bcl` 最小解析与语义校验能力（syntax/ir/sema）。
+- [ ] 新增 `blocks moc bcl validate <blocks-root> <moc.bcl> [--json]`。
+- [ ] 覆盖 `uses.blocks`/flow-step 依赖一致性、bind 引用与类型检查、协议双边一致性检查。
+- [ ] 定义并回归 `--json` 诊断契约（`error_id/rule_id/span/hint`）。
+
+Phase 2 验收：
+
+- [ ] 至少三类失败（语法/语义/协议）可稳定阻断并定位。
+- [ ] 不使用 BCL 的现有 `moc` 命令路径回归通过。
+
+### R11 Phase 3（plan + emit + parity）
+
+- [ ] 新增 `blocks moc bcl plan <blocks-root> <moc.bcl> [--json]`。
+- [ ] 新增 `blocks moc bcl emit <blocks-root> <moc.bcl> [--out <path>]`。
+- [ ] 新增 `--check-against <moc.yaml>` parity 校验，收口描述漂移。
+- [ ] 选择至少 2 个试点 `moc` 进行 emit/parity 自动化回归。
+
+Phase 3 验收：
+
+- [ ] 试点 `moc` 的 `emit --check-against` 可稳定通过。
+- [ ] 生成产物经 `blocks-moc` 校验链路通过。
+
+### R11 Phase 4（迁移门禁与仓库集成）
+
+- [ ] 在 `./scripts/repo_check.sh` 增加 BCL opt-in 检查（先 warn 后 error）。
+- [ ] 明确 warn -> error 升级时间窗与触发条件。
+- [ ] 文档化回滚开关（禁用 BCL gate 即回退到纯 `moc.yaml` 流程）。
+- [ ] 增加仓库级回归，确保 BCL gate 开关不影响既有命令兼容。
+
+Phase 4 验收：
+
+- [ ] BCL trial `moc` 全部通过仓库级检查。
+- [ ] 关闭 BCL gate 后仓库行为与基线一致。
+
 ## P0
 
 - [x] 建立 Rust workspace 与最小基础 crate。
@@ -346,3 +410,4 @@ P3 验收：
 - 2026-03-05: Completed R10 Phase 1 implementation: flow-based moc run/verify boundary unification, moc-scoped diagnostics (`moc_id`), and taxonomy-aware runtime error mapping with controlled fallback.
 - 2026-03-05: Completed R10 Phase 2 implementation: BLOCKS_SPEC MUST-field contract enforcement, active-gate warn/error strategy with date+env override, and moc uses.blocks vs flow-step dependency consistency checks.
 - 2026-03-05: Completed R10 Phase 3 implementation: `blocks-cli` layered split (`commands/app/render`), command behavior test migration to integration boundaries, and stable diagnose JSON contract regression coverage.
+- 2026-03-05: Added R11 BCL establishment plan (moc-assist boundary), with new PRD/Spec/ADR and phased TODO gates for validate/plan/emit/parity rollout.
