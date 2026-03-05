@@ -8,6 +8,7 @@ owner: Developer
 
 | Date | Feature | Status | Owner |
 |------|---------|--------|-------|
+| 2026-03-05 | Blocks CLI R10 Phase 3 | completed | Codex |
 | 2026-03-04 | Greeting Proof Slice | completed | Developer |
 | 2026-03-04 | Blocks CLI Decoupling Phase 3 | completed | Developer |
 | 2026-03-04 | Blocks CLI Decoupling Phase 2 | completed | Developer |
@@ -16,6 +17,7 @@ owner: Developer
 ---
 
 ### Change Log
+- 2026-03-05: Indexed the completed Blocks CLI R10 Phase 3 implementation log.
 - 2026-03-04: Indexed the completed Greeting Proof Slice development log.
 - 2026-03-04: Indexed the completed Blocks CLI decoupling Phase 3 implementation log.
 - 2026-03-04: Added the development log index for active implementation tracking.

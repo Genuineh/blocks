@@ -252,7 +252,7 @@ R9 验收：
 
 - [ ] 为 `blocks-contract` 补齐 `BLOCKS_SPEC` 关键 `MUST` 字段机器强校验（`owner/scope/non_goals/inputs/outputs` 等），并收口迁移窗后的 error 门禁。
 - [ ] 为 runtime 补齐 taxonomy 对齐与 `artifact_policy` 策略执行，避免 `moc run`/`moc verify` 观测边界分裂。
-- [ ] 将 `blocks-cli` 从单文件入口拆分为命令解析层、应用编排层、输出渲染层，保持现有命令行为兼容。
+- [x] 将 `blocks-cli` 从单文件入口拆分为命令解析层、应用编排层、输出渲染层，保持现有命令行为兼容。
 
 ### R10 Phase 1（统一执行与观测边界，最高优先）
 
@@ -285,15 +285,15 @@ Phase 2 验收：
 
 ### R10 Phase 3（CLI 分层与可维护性收口）
 
-- [ ] 将 `blocks-cli/src/main.rs` 按 `commands/*`、`app/*`、`render/*` 分层拆分，并保留现有 CLI 命令形状。
-- [ ] 将命令行为测试从单文件内联测试迁移到更清晰的模块/集成测试边界。
-- [ ] 为诊断输出补充稳定 JSON 契约回归测试，降低后续演进回归风险。
+- [x] 将 `blocks-cli/src/main.rs` 按 `commands/*`、`app/*`、`render/*` 分层拆分，并保留现有 CLI 命令形状。
+- [x] 将命令行为测试从单文件内联测试迁移到更清晰的模块/集成测试边界。
+- [x] 为诊断输出补充稳定 JSON 契约回归测试，降低后续演进回归风险。
 
 Phase 3 验收：
 
-- [ ] `main.rs` 仅保留轻量入口与路由，不再承载核心业务编排逻辑。
-- [ ] 现有 `blocks/moc` 命令兼容性回归通过。
-- [ ] 关键诊断命令具备稳定 JSON 输出契约测试。
+- [x] `main.rs` 仅保留轻量入口与路由，不再承载核心业务编排逻辑。
+- [x] 现有 `blocks/moc` 命令兼容性回归通过。
+- [x] 关键诊断命令具备稳定 JSON 输出契约测试。
 
 ## P0
 
@@ -345,3 +345,4 @@ P3 验收：
 - 2026-03-05: Added R10 Phase 1 minimal landing design pack with function-level checklist, risk register, and dedicated ADR for runtime boundary + moc diagnose + taxonomy mapping.
 - 2026-03-05: Completed R10 Phase 1 implementation: flow-based moc run/verify boundary unification, moc-scoped diagnostics (`moc_id`), and taxonomy-aware runtime error mapping with controlled fallback.
 - 2026-03-05: Completed R10 Phase 2 implementation: BLOCKS_SPEC MUST-field contract enforcement, active-gate warn/error strategy with date+env override, and moc uses.blocks vs flow-step dependency consistency checks.
+- 2026-03-05: Completed R10 Phase 3 implementation: `blocks-cli` layered split (`commands/app/render`), command behavior test migration to integration boundaries, and stable diagnose JSON contract regression coverage.
