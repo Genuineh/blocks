@@ -1,18 +1,101 @@
 id: core.fs.read_text
 name: Read Text File
 version: 0.1.0
-status: draft
+status: active
+owner: blocks-core-team
 purpose: Read a UTF-8 text file from disk.
-implementation:
-  kind: rust
-  entry: rust/lib.rs
-  target: backend
+scope:
+  - Read one local file path and return its UTF-8 text content.
+non_goals:
+  - Binary file decoding.
+  - Directory traversal management.
+inputs:
+  - name: path
+    description: Local file path.
 input_schema:
   path:
     type: string
     required: true
     min_length: 1
+preconditions:
+  - Caller has read permission for the target path.
+outputs:
+  - name: text
+    description: UTF-8 file content.
 output_schema:
   text:
     type: string
     required: true
+postconditions:
+  - Returned text reflects current file content at read time.
+implementation:
+  kind: rust
+  entry: rust/lib.rs
+  target: backend
+dependencies:
+  runtime:
+    - std::fs
+side_effects:
+  - Reads from local filesystem.
+timeouts:
+  default_ms: 1000
+  max_ms: 5000
+resource_limits:
+  memory_mb: 64
+  cpu_ms: 500
+failure_modes:
+  - id: invalid_input
+    when: Input path fails validation.
+  - id: dependency_unavailable
+    when: File does not exist or cannot be read.
+  - id: internal_error
+    when: Read fails unexpectedly.
+error_codes:
+  - invalid_input
+  - dependency_unavailable
+  - internal_error
+recovery_strategy:
+  - Validate and normalize file path before invocation.
+  - Retry after permission or transient FS issue is resolved.
+verification:
+  automated:
+    - cargo test -p blocks-runtime
+  manual:
+    - Execute block with a fixture text file and confirm returned content.
+evaluation:
+  quality_gates:
+    - Output schema validation passes.
+    - Failure artifacts are redacted.
+acceptance_criteria:
+  - Existing readable file returns expected text.
+  - Missing or unreadable file returns structured failure.
+  - Diagnostics include execution_id and trace_id context.
+debug:
+  enabled_in_dev: true
+  emits_structured_logs: true
+  log_fields:
+    - timestamp
+    - level
+    - event
+    - block_id
+    - block_version
+    - execution_id
+    - trace_id
+observe:
+  metrics:
+    - execution_total
+    - execution_failed_total
+    - execution_latency_ms
+  emits_failure_artifact: true
+  artifact_policy:
+    mode: on_failure
+    on_failure_minimum:
+      include_input_snapshot: true
+      include_error_report: true
+      include_output_snapshot: conditional_when_present
+    redaction_profile: basic
+errors:
+  taxonomy:
+    - id: invalid_input
+    - id: dependency_unavailable
+    - id: internal_error

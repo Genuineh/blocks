@@ -1,17 +1,29 @@
 id: core.http.get
 name: HTTP Get
 version: 0.1.0
-status: draft
+status: active
+owner: blocks-core-team
 purpose: Perform a minimal HTTP GET request and return status and body.
-implementation:
-  kind: rust
-  entry: rust/lib.rs
-  target: backend
+scope:
+  - Execute one plain HTTP GET call and return response summary.
+non_goals:
+  - HTTPS/TLS requests.
+  - Streaming downloads.
+inputs:
+  - name: url
+    description: Absolute plain HTTP endpoint URL.
 input_schema:
   url:
     type: string
     required: true
     min_length: 8
+preconditions:
+  - URL uses http:// and is reachable from runtime network.
+outputs:
+  - name: status
+    description: HTTP response status code.
+  - name: body
+    description: Response text body.
 output_schema:
   status:
     type: integer
@@ -19,3 +31,72 @@ output_schema:
   body:
     type: string
     required: true
+postconditions:
+  - Response status and body are returned for successful call execution.
+implementation:
+  kind: rust
+  entry: rust/lib.rs
+  target: backend
+dependencies:
+  runtime:
+    - std::net::TcpStream
+side_effects:
+  - Issues outbound network request.
+timeouts:
+  default_ms: 3000
+  max_ms: 10000
+resource_limits:
+  memory_mb: 64
+  cpu_ms: 1000
+failure_modes:
+  - id: invalid_input
+    when: Required url field is missing or schema validation fails.
+  - id: internal_error
+    when: URL parse, socket connect, read, or response parse fails at runtime.
+error_codes:
+  - invalid_input
+  - internal_error
+recovery_strategy:
+  - Validate URL and scheme before invocation to reduce runtime parse errors.
+  - Retry with backoff when failure is likely transient.
+verification:
+  automated:
+    - cargo test -p blocks-runtime
+  manual:
+    - Invoke against a controlled endpoint and assert status/body shape.
+evaluation:
+  quality_gates:
+    - Output schema validation passes.
+    - Runtime failures map to internal_error taxonomy.
+acceptance_criteria:
+  - Valid URL returns status and body fields.
+  - Non-http scheme fails with internal_error under current runtime wrapper.
+  - Failure diagnostics are redacted and traceable.
+debug:
+  enabled_in_dev: true
+  emits_structured_logs: true
+  log_fields:
+    - timestamp
+    - level
+    - event
+    - block_id
+    - block_version
+    - execution_id
+    - trace_id
+observe:
+  metrics:
+    - execution_total
+    - execution_failed_total
+    - execution_latency_ms
+  emits_failure_artifact: true
+  artifact_policy:
+    mode: on_failure
+    on_failure_minimum:
+      include_input_snapshot: true
+      include_error_report: true
+      include_output_snapshot: conditional_when_present
+    redaction_profile: basic
+errors:
+  taxonomy:
+    - id: invalid_input
+    - id: internal_error

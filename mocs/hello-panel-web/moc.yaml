@@ -1,0 +1,29 @@
+id: hello-panel-web
+name: Hello Panel Web
+type: frontend_app
+language: tauri_ts
+entry: src/main.ts
+public_contract:
+  input_schema: {}
+  output_schema:
+    mounted:
+      type: boolean
+      required: true
+uses:
+  blocks:
+    - ui.dom.mount_text
+  internal_blocks: []
+depends_on_mocs: []
+protocols:
+  - name: dom-ready
+    channel: webview
+    input_schema: {}
+    output_schema:
+      mounted:
+        type: boolean
+        required: true
+verification:
+  commands:
+    - review src/main.ts and src-tauri/README.md
+acceptance_criteria:
+  - mounts the hello message into the #app element

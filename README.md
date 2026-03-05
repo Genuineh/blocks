@@ -80,16 +80,35 @@
 ## 仓库文档
 
 - [docs/TODO.md](./docs/TODO.md)：当前代办、优先级与近期推进顺序。
-- [docs/prds/MVP_PLAN.md](./docs/prds/MVP_PLAN.md)：当前最小 MVP 的架构分期与实施路径。
-- [docs/prds/RUST_WORKSPACE_ARCHITECTURE.md](./docs/prds/RUST_WORKSPACE_ARCHITECTURE.md)：P0 阶段的 Rust workspace 架构草图，定义 crate 边界、依赖方向和错误流转。
+- [docs/prds/MVP_PLAN.md](./docs/prds/MVP_PLAN.md)：当前最小 MVP 的 `moc` 模型、分期与实施路径。
+- [docs/prds/RUST_WORKSPACE_ARCHITECTURE.md](./docs/prds/RUST_WORKSPACE_ARCHITECTURE.md)：当前 Rust workspace 的 `moc` 模型架构草图。
+- [docs/prds/BLOCKS_CLI_DECOUPLING_PLAN.md](./docs/prds/BLOCKS_CLI_DECOUPLING_PLAN.md)：`blocks-cli` 运行 wiring 解耦方案，规划如何把可执行 block 注册从 CLI 命令层拆出。
+- [docs/prds/GREETING_PROOF_SLICE_PLAN.md](./docs/prds/GREETING_PROOF_SLICE_PLAN.md)：最小真实前后端 proof slice 方案，定义 `greeting-api-service` 与 `greeting-panel-web` 的交付边界。
+- [docs/prds/BLOCK_DEBUG_OBSERVABILITY_FOUNDATION_PLAN.md](./docs/prds/BLOCK_DEBUG_OBSERVABILITY_FOUNDATION_PLAN.md)：block 可调试与可观测基础能力规划，定义统一诊断与可观测基线。
+- [docs/prds/ARCHITECTURE_DEBT_REDUCTION_PLAN_2026Q1.md](./docs/prds/ARCHITECTURE_DEBT_REDUCTION_PLAN_2026Q1.md)：当前 1-2 周架构整改计划，聚焦 contract/runtime/cli 三条主线。
+- [docs/prds/R10_PHASE1_MINIMAL_RUNTIME_BOUNDARY_PLAN.md](./docs/prds/R10_PHASE1_MINIMAL_RUNTIME_BOUNDARY_PLAN.md)：R10 Phase 1 最小落地计划，聚焦 run/verify runtime 边界统一、moc 级诊断归属与 taxonomy 映射。
 - [docs/guide/README.md](./docs/guide/README.md)：使用说明和后续贡献流程入口。
 - [docs/decisions/README.md](./docs/decisions/README.md)：架构决策记录入口。
+- [docs/decisions/001-enforce-contract-runtime-boundary.md](./docs/decisions/001-enforce-contract-runtime-boundary.md)：contract 强校验、统一运行边界与 CLI 分层的决策记录。
+- [docs/decisions/002-r10-phase1-runtime-observability-boundary.md](./docs/decisions/002-r10-phase1-runtime-observability-boundary.md)：R10 Phase 1 最小决策，固定 runtime 观测边界统一与受控 fallback 方案。
 - [docs/archive/README.md](./docs/archive/README.md)：历史文档与归档说明入口。
 - [docs/whitepapers/WHITEPAPER.md](./docs/whitepapers/WHITEPAPER.md)：`blocks` 的理念白皮书，解释为什么需要这种面向 AI 的基础组件。
 - [docs/whitepapers/DEVELOPMENT_WHITEPAPER.md](./docs/whitepapers/DEVELOPMENT_WHITEPAPER.md)：面向 `blocks` 能力进行项目产出的开发白皮书，定义交付方法与工程流程。
-- [docs/specs/BLOCKS_SPEC.md](./docs/specs/BLOCKS_SPEC.md)：`blocks` 规范，定义一个合格 `block` 的结构、契约、验证与质量要求。
+- [docs/specs/BLOCKS_SPEC.md](./docs/specs/BLOCKS_SPEC.md)：`block` 规范，定义公共能力单元的结构、契约、验证与质量要求。
+- [docs/specs/MOC_SPEC.md](./docs/specs/MOC_SPEC.md)：`moc` 规范，定义最终交付单元的类型、结构、描述文件和协议边界。
+- [docs/specs/GREETING_PROOF_SLICE_SPEC.md](./docs/specs/GREETING_PROOF_SLICE_SPEC.md)：全栈 greeting proof slice 的技术规格，明确接口与验证边界。
+- [docs/specs/BLOCK_DEBUG_OBSERVABILITY_FOUNDATION_SPEC.md](./docs/specs/BLOCK_DEBUG_OBSERVABILITY_FOUNDATION_SPEC.md)：block 调试与可观测基础能力技术规格，定义诊断事件、工件与 CLI 能力边界。
+- [docs/specs/ARCHITECTURE_REFACTOR_SPEC_2026Q1.md](./docs/specs/ARCHITECTURE_REFACTOR_SPEC_2026Q1.md)：contract/runtime/cli 架构整改技术规格，定义边界与实施步骤。
+- [docs/specs/R10_PHASE1_RUNTIME_BOUNDARY_SPEC.md](./docs/specs/R10_PHASE1_RUNTIME_BOUNDARY_SPEC.md)：R10 Phase 1 函数级改造规格，给出 run/verify 共享执行边界、moc diagnose 修正与 error_id 映射清单。
 - [docs/whitepapers/BLOCKS_LANGUAGE_WHITEPAPER.md](./docs/whitepapers/BLOCKS_LANGUAGE_WHITEPAPER.md)：面向 AI 的 `blocks` 抽象语言白皮书，定义语言模型、基础语法、编译器与产物形态。
-- [apps/echo-pipeline/README.md](./apps/echo-pipeline/README.md)：最小串行组合示例，展示 `app.yaml` 校验和 Rust backend 启动器。
-- [apps/hello-pipeline/README.md](./apps/hello-pipeline/README.md)：最小文件读写示例，展示 block 组合后的真实 app 启动入口。
+- [mocs/echo-pipeline/README.md](./mocs/echo-pipeline/README.md)：当前最小 moc 示例，后端已直接依赖 `demo.echo` 的 Rust crate。
+- [mocs/hello-pipeline/README.md](./mocs/hello-pipeline/README.md)：当前最小 moc 示例，后端已直接依赖文件类 Rust block crate。
+- [mocs/hello-world-console/README.md](./mocs/hello-world-console/README.md)：自由 `moc.main` 示例，组合 `hello-message-lib` 和 `core.console.write_line`。
+- [mocs/hello-message-lib/README.md](./mocs/hello-message-lib/README.md)：最小 `rust_lib` moc 示例，同时提供跨 `moc` 协议样例。
+- [mocs/hello-panel-lib/README.md](./mocs/hello-panel-lib/README.md)：最小 `frontend_lib` moc 示例，提供统一 `moc dev` 预览入口。
+- [mocs/counter-panel-web/README.md](./mocs/counter-panel-web/README.md)：最小交互式 `frontend_app` moc 示例，提供计数器界面、预览页面和真实 Tauri 宿主。
+- [mocs/hello-panel-web/README.md](./mocs/hello-panel-web/README.md)：最小 `frontend_app` moc 示例，展示 Tauri + TypeScript 边界并提供本地预览入口。
+- [mocs/greeting-api-service/README.md](./mocs/greeting-api-service/README.md)：最小 `backend_app(service)` moc 示例，提供真实 HTTP API 合同。
+- [mocs/greeting-panel-web/README.md](./mocs/greeting-panel-web/README.md)：最小真实取数的 `frontend_app` moc 示例，获取后端 greeting 并渲染状态。
 - [skills/create-block.md](./skills/create-block.md)：创建新 block 的标准流程。
-- [skills/compose-app.md](./skills/compose-app.md)：用现有 block 组装 `app.yaml` 并落地 app 启动器的标准流程。
+- [skills/build-moc.md](./skills/build-moc.md)：当前 moc 构建技能文档。

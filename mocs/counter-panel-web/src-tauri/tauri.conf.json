@@ -1,0 +1,22 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Counter Panel Web",
+  "version": "0.1.0",
+  "identifier": "com.blocks.counterpanelweb",
+  "build": {
+    "frontendDist": "../preview"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Counter Panel Web",
+        "width": 960,
+        "height": 720
+      }
+    ]
+  },
+  "bundle": {
+    "active": false
+  }
+}

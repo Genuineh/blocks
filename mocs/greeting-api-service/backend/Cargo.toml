@@ -1,0 +1,12 @@
+[package]
+name = "greeting-api-service-backend"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+
+[[bin]]
+name = "greeting-api-service-backend"
+path = "src/main.rs"
+
+[dependencies]
+serde_json.workspace = true

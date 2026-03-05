@@ -1,0 +1,30 @@
+id: counter-panel-web
+name: Counter Panel Web
+type: frontend_app
+language: tauri_ts
+entry: src/main.ts
+public_contract:
+  input_schema: {}
+  output_schema:
+    mounted:
+      type: boolean
+      required: true
+uses:
+  blocks:
+    - ui.counter.mount
+  internal_blocks: []
+depends_on_mocs: []
+protocols:
+  - name: dom-ready
+    channel: webview
+    input_schema: {}
+    output_schema:
+      mounted:
+        type: boolean
+        required: true
+verification:
+  commands:
+    - cargo --offline run --manifest-path src-tauri/Cargo.toml -- --headless-probe
+acceptance_criteria:
+  - renders a counter card into the #app element
+  - increment, decrement, and reset buttons all update the displayed value

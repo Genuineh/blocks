@@ -21,7 +21,7 @@ Planned code layout:
 
 - `crates/`: Rust workspace crates.
 - `blocks/`: reusable blocks.
-- `apps/`: composed applications.
+- `mocs/`: composed delivery units under the current moc model.
 - `skills/`: AI operating guides.
 
 If any document moves, add or update links in the same change, including `README.md`.

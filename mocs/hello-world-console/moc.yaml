@@ -1,0 +1,40 @@
+id: hello-world-console
+name: Hello World Console
+type: backend_app
+backend_mode: console
+language: rust
+entry: backend/src/main.rs
+public_contract:
+  input_schema: {}
+  output_schema:
+    written:
+      type: boolean
+      required: true
+uses:
+  blocks:
+    - core.console.write_line
+  internal_blocks:
+    - hello_world.message
+depends_on_mocs:
+  - moc: hello-message-lib
+    protocol: hello-message
+protocols:
+  - name: hello-message
+    channel: memory
+    input_schema: {}
+    output_schema:
+      text:
+        type: string
+        required: true
+  - name: stdout-line
+    channel: stdio
+    input_schema: {}
+    output_schema:
+      written:
+        type: boolean
+        required: true
+verification:
+  commands:
+    - cargo test
+acceptance_criteria:
+  - prints hello world exactly once

@@ -1,0 +1,14 @@
+[package]
+name = "hello-pipeline-backend"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+
+[[bin]]
+name = "hello-pipeline-backend"
+path = "src/main.rs"
+
+[dependencies]
+block-core-fs-read-text = { path = "../../../blocks/core.fs.read_text/rust" }
+block-core-fs-write-text = { path = "../../../blocks/core.fs.write_text/rust" }
+serde_json.workspace = true

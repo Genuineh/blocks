@@ -1,0 +1,59 @@
+id: hello_world.message
+name: Hello World Message
+version: 0.1.0
+status: candidate
+owner: hello-world-moc-team
+purpose: Produce a deterministic hello-world text message for the console moc.
+scope:
+  - Return one static message payload for local demo flow.
+non_goals:
+  - Runtime personalization.
+  - External dependency calls.
+inputs: []
+input_schema: {}
+preconditions:
+  - None.
+outputs:
+  - name: text
+    description: Hello-world message.
+output_schema:
+  text:
+    type: string
+    required: true
+postconditions:
+  - Output text is deterministic.
+implementation:
+  kind: rust
+  entry: rust/lib.rs
+  target: backend
+dependencies:
+  runtime:
+    - none
+side_effects:
+  - none
+timeouts:
+  default_ms: 200
+  max_ms: 1000
+resource_limits:
+  memory_mb: 16
+  cpu_ms: 100
+failure_modes:
+  - id: internal_error
+    when: Unexpected runtime failure occurs.
+error_codes:
+  - internal_error
+recovery_strategy:
+  - Re-run block; no external side effects to roll back.
+verification:
+  automated:
+    - cargo test -p blocks-cli
+  manual:
+    - Run hello-world-console moc and verify text output.
+evaluation:
+  quality_gates:
+    - Output schema validation passes.
+    - Message remains deterministic.
+acceptance_criteria:
+  - Execution succeeds with no input.
+  - Returns text field populated.
+  - Works in moc run flow.

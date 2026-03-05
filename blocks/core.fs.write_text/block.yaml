@@ -1,12 +1,19 @@
 id: core.fs.write_text
 name: Write Text File
 version: 0.1.0
-status: draft
+status: active
+owner: blocks-core-team
 purpose: Write UTF-8 text to a file on disk.
-implementation:
-  kind: rust
-  entry: rust/lib.rs
-  target: backend
+scope:
+  - Write text content to one local file path.
+non_goals:
+  - Transactional multi-file writes.
+  - Binary data encoding.
+inputs:
+  - name: path
+    description: Local file path.
+  - name: text
+    description: UTF-8 text content to write.
 input_schema:
   path:
     type: string
@@ -15,7 +22,85 @@ input_schema:
   text:
     type: string
     required: true
+preconditions:
+  - Caller has write permission for target path.
+outputs:
+  - name: path
+    description: Path written by the operation.
 output_schema:
   path:
     type: string
     required: true
+postconditions:
+  - Target file content matches provided text when operation succeeds.
+implementation:
+  kind: rust
+  entry: rust/lib.rs
+  target: backend
+dependencies:
+  runtime:
+    - std::fs
+side_effects:
+  - Writes to local filesystem.
+timeouts:
+  default_ms: 1000
+  max_ms: 5000
+resource_limits:
+  memory_mb: 64
+  cpu_ms: 500
+failure_modes:
+  - id: invalid_input
+    when: Input path or text fails validation.
+  - id: dependency_unavailable
+    when: Filesystem path or permission is unavailable.
+  - id: internal_error
+    when: Write operation fails unexpectedly.
+error_codes:
+  - invalid_input
+  - dependency_unavailable
+  - internal_error
+recovery_strategy:
+  - Validate input path and ensure parent directory exists.
+  - Retry only after permission or locking issue is cleared.
+verification:
+  automated:
+    - cargo test -p blocks-runtime
+  manual:
+    - Run write then read back content for the same path.
+evaluation:
+  quality_gates:
+    - Output schema validation passes.
+    - Failure artifacts include redacted snapshots.
+acceptance_criteria:
+  - Valid path and text return written path.
+  - Invalid or inaccessible path returns structured failure.
+  - Diagnostics include execution_id for failed runs.
+debug:
+  enabled_in_dev: true
+  emits_structured_logs: true
+  log_fields:
+    - timestamp
+    - level
+    - event
+    - block_id
+    - block_version
+    - execution_id
+    - trace_id
+observe:
+  metrics:
+    - execution_total
+    - execution_failed_total
+    - execution_latency_ms
+  emits_failure_artifact: true
+  artifact_policy:
+    mode: on_failure
+    on_failure_minimum:
+      include_input_snapshot: true
+      include_error_report: true
+      include_output_snapshot: conditional_when_present
+    redaction_profile: basic
+errors:
+  taxonomy:
+    - id: invalid_input
+    - id: dependency_unavailable
+    - id: internal_error

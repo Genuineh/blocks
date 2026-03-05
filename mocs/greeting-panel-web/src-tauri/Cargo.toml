@@ -1,0 +1,18 @@
+[package]
+name = "greeting-panel-web-host"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+build = "build.rs"
+
+[[bin]]
+name = "greeting-panel-web-host"
+path = "src/main.rs"
+
+[dependencies]
+tauri = { version = "=2.10.2" }
+
+[build-dependencies]
+tauri-build = { version = "=2.5.5" }
+
+[workspace]

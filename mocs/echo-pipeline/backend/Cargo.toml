@@ -1,0 +1,13 @@
+[package]
+name = "echo-pipeline-backend"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+
+[[bin]]
+name = "echo-pipeline-backend"
+path = "src/main.rs"
+
+[dependencies]
+block-demo-echo = { path = "../../../blocks/demo.echo/rust" }
+serde_json.workspace = true

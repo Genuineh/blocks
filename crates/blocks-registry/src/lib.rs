@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use blocks_contract::{BlockContract, ContractLoadError};
+use blocks_contract::{BlockContract, ContractLoadError, ContractValidationIssue};
 use thiserror::Error;
 
 #[derive(Debug, Clone)]
@@ -11,6 +11,7 @@ pub struct RegisteredBlock {
     pub block_dir: PathBuf,
     pub contract_path: PathBuf,
     pub implementation_path: PathBuf,
+    pub contract_warnings: Vec<ContractValidationIssue>,
 }
 
 #[derive(Debug, Default)]
@@ -84,12 +85,13 @@ impl Registry {
                 }
             })?;
 
-            let contract = BlockContract::from_yaml_str(&source).map_err(|source| {
-                RegistryError::ParseContract {
-                    path: contract_path.clone(),
-                    source,
-                }
-            })?;
+            let (contract, report) =
+                BlockContract::from_yaml_str_with_report(&source).map_err(|source| {
+                    RegistryError::ParseContract {
+                        path: contract_path.clone(),
+                        source,
+                    }
+                })?;
             let implementation = contract.implementation.as_ref().ok_or_else(|| {
                 RegistryError::MissingImplementationMetadata {
                     path: contract_path.clone(),
@@ -115,6 +117,7 @@ impl Registry {
                     block_dir,
                     contract_path,
                     implementation_path,
+                    contract_warnings: report.warnings(),
                 },
             );
         }

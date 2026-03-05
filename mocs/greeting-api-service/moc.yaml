@@ -1,0 +1,36 @@
+id: greeting-api-service
+name: Greeting API Service
+type: backend_app
+backend_mode: service
+language: rust
+entry: backend/src/main.rs
+public_contract:
+  input_schema: {}
+  output_schema:
+    title:
+      type: string
+      required: true
+    message:
+      type: string
+      required: true
+uses:
+  blocks: []
+  internal_blocks: []
+depends_on_mocs: []
+protocols:
+  - name: greeting-http
+    channel: http
+    input_schema: {}
+    output_schema:
+      title:
+        type: string
+        required: true
+      message:
+        type: string
+        required: true
+verification:
+  commands:
+    - cargo test --manifest-path backend/Cargo.toml
+acceptance_criteria:
+  - serves GET /api/v1/greeting with a stable JSON body containing title and message
+  - defaults to a manual demo port but accepts GREETING_API_PORT overrides for local runs and tests

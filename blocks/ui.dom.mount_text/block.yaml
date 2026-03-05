@@ -1,0 +1,72 @@
+id: ui.dom.mount_text
+name: UI DOM Mount Text
+version: 0.1.0
+status: candidate
+owner: blocks-frontend-team
+purpose: Mount static text content into a frontend DOM container.
+scope:
+  - Render plain text to current mount root element.
+non_goals:
+  - Rich text formatting.
+  - Reactive state management.
+inputs:
+  - name: text
+    description: Text content to mount.
+input_schema:
+  text:
+    type: string
+    required: true
+preconditions:
+  - Frontend runtime has writable mount root.
+outputs:
+  - name: mounted
+    description: Whether text mount succeeded.
+output_schema:
+  mounted:
+    type: boolean
+    required: true
+postconditions:
+  - Mount root contains provided text on success.
+implementation:
+  kind: tauri_ts
+  entry: tauri_ts/src/index.ts
+  target: frontend
+dependencies:
+  runtime:
+    - DOM APIs
+    - Tauri webview host
+side_effects:
+  - Mutates DOM text content.
+timeouts:
+  default_ms: 500
+  max_ms: 3000
+resource_limits:
+  memory_mb: 32
+  cpu_ms: 300
+failure_modes:
+  - id: invalid_input
+    when: text input fails validation.
+  - id: dependency_unavailable
+    when: mount root is not available.
+  - id: internal_error
+    when: DOM operation fails.
+error_codes:
+  - invalid_input
+  - dependency_unavailable
+  - internal_error
+recovery_strategy:
+  - Validate mount root existence before rendering.
+  - Retry mount after host readiness event.
+verification:
+  automated:
+    - npm --prefix mocs/counter-panel-web run test
+  manual:
+    - Run preview host and verify mounted text output.
+evaluation:
+  quality_gates:
+    - Mounted flag aligns with DOM mutation result.
+    - Failure path emits diagnostic signal.
+acceptance_criteria:
+  - Valid text renders and returns mounted=true.
+  - Missing root fails with dependency_unavailable.
+  - CLI verify keeps frontend target contract valid.

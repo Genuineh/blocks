@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Hello Panel Lib Preview</title>
+    <style>
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background: linear-gradient(135deg, #eff6ff, #dbeafe);
+        font-family: "Avenir Next", "Segoe UI", sans-serif;
+      }
+
+      #app {
+        padding: 24px 28px;
+        border-radius: 18px;
+        background: #ffffff;
+        border: 1px solid #bfdbfe;
+        box-shadow: 0 18px 48px rgba(30, 64, 175, 0.12);
+        font-size: 20px;
+        font-weight: 600;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module">
+      import { mountTextView } from "../../../blocks/ui.dom.mount_text/tauri_ts/src/text_view.js";
+
+      const root = document.querySelector("#app");
+      if (!root) {
+        throw new Error("missing #app element");
+      }
+
+      mountTextView(root, "hello from frontend lib");
+    </script>
+  </body>
+</html>

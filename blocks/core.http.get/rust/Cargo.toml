@@ -1,0 +1,12 @@
+[package]
+name = "block-core-http-get"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+
+[lib]
+path = "lib.rs"
+
+[dependencies]
+blocks-runtime = { path = "../../../crates/blocks-runtime" }
+serde_json.workspace = true

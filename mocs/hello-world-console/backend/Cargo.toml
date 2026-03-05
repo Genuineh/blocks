@@ -1,0 +1,14 @@
+[package]
+name = "hello-world-console-backend"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+
+[[bin]]
+name = "hello-world-console-backend"
+path = "src/main.rs"
+
+[dependencies]
+block-core-console-write-line = { path = "../../../blocks/core.console.write_line/rust" }
+hello-message-lib = { path = "../../hello-message-lib" }
+serde_json.workspace = true

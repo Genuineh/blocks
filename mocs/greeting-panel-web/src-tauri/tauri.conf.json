@@ -1,0 +1,22 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Greeting Panel Web",
+  "version": "0.1.0",
+  "identifier": "com.blocks.greetingpanelweb",
+  "build": {
+    "frontendDist": "../preview"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Greeting Panel Web",
+        "width": 960,
+        "height": 720
+      }
+    ]
+  },
+  "bundle": {
+    "active": false
+  }
+}

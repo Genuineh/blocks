@@ -1,17 +1,100 @@
 id: core.json.transform
 name: JSON Transform
 version: 0.1.0
-status: draft
-purpose: Perform a minimal JSON transform by returning the provided object as `result`.
-implementation:
-  kind: rust
-  entry: rust/lib.rs
-  target: shared
+status: active
+owner: blocks-core-team
+purpose: Perform a minimal JSON transform by returning the provided object as result.
+scope:
+  - Accept one JSON object and return it through a stable result field.
+non_goals:
+  - Schema evolution or patch DSL execution.
+  - Cross-document merge orchestration.
+inputs:
+  - name: source
+    description: Source JSON object.
 input_schema:
   source:
     type: object
     required: true
+preconditions:
+  - Input source is a JSON object.
+outputs:
+  - name: result
+    description: Transformed JSON object.
 output_schema:
   result:
     type: object
     required: true
+postconditions:
+  - Result is always a JSON object when execution succeeds.
+implementation:
+  kind: rust
+  entry: rust/lib.rs
+  target: shared
+dependencies:
+  runtime:
+    - serde_json
+side_effects:
+  - none
+timeouts:
+  default_ms: 500
+  max_ms: 2000
+resource_limits:
+  memory_mb: 64
+  cpu_ms: 300
+failure_modes:
+  - id: invalid_input
+    when: Input payload is not valid for schema.
+  - id: internal_error
+    when: Serialization or transform pipeline fails.
+  - id: invalid_output
+    when: Produced output does not match schema.
+error_codes:
+  - invalid_input
+  - internal_error
+  - invalid_output
+recovery_strategy:
+  - Validate schema before transform execution.
+  - Fall back to source payload passthrough when safe.
+verification:
+  automated:
+    - cargo test -p blocks-runtime
+  manual:
+    - Run transform with fixture object and verify result equivalence.
+evaluation:
+  quality_gates:
+    - Output schema validation passes.
+    - Failure taxonomy mapping is stable.
+acceptance_criteria:
+  - Valid object input returns result object.
+  - Non-object input is rejected with invalid_input.
+  - Diagnostics include execution metadata on failures.
+debug:
+  enabled_in_dev: true
+  emits_structured_logs: true
+  log_fields:
+    - timestamp
+    - level
+    - event
+    - block_id
+    - block_version
+    - execution_id
+    - trace_id
+observe:
+  metrics:
+    - execution_total
+    - execution_failed_total
+    - execution_latency_ms
+  emits_failure_artifact: true
+  artifact_policy:
+    mode: on_failure
+    on_failure_minimum:
+      include_input_snapshot: true
+      include_error_report: true
+      include_output_snapshot: conditional_when_present
+    redaction_profile: basic
+errors:
+  taxonomy:
+    - id: invalid_input
+    - id: internal_error
+    - id: invalid_output

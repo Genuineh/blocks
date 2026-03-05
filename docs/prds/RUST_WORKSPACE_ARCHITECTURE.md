@@ -1,104 +1,93 @@
-# Rust Workspace 架构草图
+# Rust Workspace 架构草图（MOC 模型）
 
-## 目标
+## 1. 目标
 
-为第一阶段 MVP 固定最小 Rust workspace 边界，确保 `contract / registry / runtime / composer / core / cli / app-launcher` 职责清晰、依赖单向、错误可追踪，并为后续前端启动器代码留出清晰边界。
+固定最新的 Rust workspace 边界，确保仓库从较早的顶层原型迁回“`moc` 模型”：
 
-## Crate 边界
+- `block` 是库能力
+- `moc` 是最终交付单元
+- `moc` 主入口是自由代码
+
+## 2. 当前推荐边界
 
 - `blocks-contract`
-  - 负责 `block.yaml` 的解析、最小契约模型、实现类型声明、输入校验、标准校验问题结构。
-  - 不负责文件扫描、执行调度或 CLI。
+  - 负责 `block.yaml` 和未来 `moc.yaml` 的基础契约模型、字段校验、错误类型
+  - 不负责文件扫描和执行
 - `blocks-registry`
-  - 负责扫描本地 `blocks/*/block.yaml`、索引 block、提供 list/show/search 所需数据。
-  - 依赖 `blocks-contract` 解析契约。
-  - 不负责执行 block。
+  - 负责发现公共 `block`
+  - 不负责执行，也不负责 `moc` 编排
 - `blocks-runtime`
-  - 负责后续的执行胶水层、执行结果和运行日志模型。
-  - 当前负责单 block 的执行胶水：输入校验、执行调用、输出校验。
-  - 不负责目录扫描和组合编排。
-- `blocks-composer`
-  - 负责 `app.yaml` 的解析、bind 校验、类型匹配和执行计划生成。
-  - 依赖 `blocks-registry` 做 block 发现。
-  - 保持轻量描述层，不演化为复杂工作流引擎。
-  - 在目标架构里，它是过渡验证层，不是最终 app 运行入口。
-- `blocks-core`
-  - 负责静态链接当前内置 block 的 Rust 实现，并向 runtime 暴露统一 `BlockRunner`。
-  - 只承载 block 具体能力，不承载目录扫描、契约校验或 app 级编排。
+  - 只负责单 `block` 执行胶水
+  - 不负责 `moc` 级调度
+- `blocks/*/rust`
+  - 对可直接复用的 Rust `block`，应逐步提供独立 crate 入口
+  - `block.yaml` 继续保留为 AI 和校验使用的描述层
+- `blocks-moc`
+  - 当前承载 `moc` 描述层
+  - 负责 `moc.yaml` 解析、类型校验、依赖 `block` 校验、最小协议校验、`internal_blocks` 布局校验
+  - 只做描述层和辅助层，不做最终运行入口
 - `blocks-cli`
-  - 负责参数解析和调用下层 crate。
-  - 不复制契约校验或目录扫描逻辑。
-- `apps/*/backend`
-  - 负责真实 app 启动、加载执行计划、串行调用 runtime。
-  - app 的对外行为应在这里落地，而不是写回 `app.yaml` 或 CLI。
+  - 负责 list/show/run/validate 等入口
+  - 当前提供 `moc run` 与 `moc verify` 入口：前者只分发真实运行路径，后者显式执行 `verification` 流
+  - 对 `blocks run` / `moc verify` 保留最小本地 block runner
+  - 不承载 `moc` 业务逻辑
+- `mocs/*`
+  - 承载真实 `moc` 代码入口
+  - 可以自由调用公共 `block` 和内部私有 `block`
 
-App 层约束：
+## 3. 关键依赖方向
 
-- app 最终应由 Rust 启动器代码承载。
-- 若存在前端，则前端入口由 Tauri + TS 启动器承载。
-- `blocks-composer` 可以辅助校验或生成，但不能替代这些启动器。
-
-## 依赖方向
-
-只允许以下方向：
+允许：
 
 ```text
 blocks-cli -> blocks-registry
 blocks-cli -> blocks-runtime
-blocks-cli -> blocks-composer
-blocks-cli -> blocks-core
-blocks-composer -> blocks-registry
-blocks-composer -> blocks-contract
+blocks-cli -> blocks-moc
+blocks-cli -> blocks/*/rust (debug-run path only)
 blocks-registry -> blocks-contract
 blocks-runtime -> blocks-contract
-blocks-core -> blocks-runtime
-apps/*/backend -> blocks-composer
-apps/*/backend -> blocks-core
-apps/*/backend -> blocks-registry
-apps/*/backend -> blocks-runtime
+blocks-moc -> blocks-contract
+blocks-moc -> blocks-registry
+mocs/* -> blocks/*/rust (preferred direct dependency)
+mocs/* -> blocks-registry (optional, descriptor lookup only)
+mocs/* -> blocks-moc (optional, descriptor validation only)
 ```
 
 禁止：
 
-- `blocks-contract` 依赖任何上层 crate
-- `blocks-registry` 依赖 `blocks-runtime`
-- `blocks-runtime` 依赖 `blocks-registry`（至少在第一阶段前半段不允许）
-- `blocks-composer` 反向承载 block 实现代码
-- 任意核心逻辑回流到 CLI
-- app 启动逻辑回流到 `blocks-composer`
+- `blocks-runtime` 依赖 `blocks-registry`
+- `blocks-moc` 直接承担最终运行
+- `CLI` 回收 `moc` 主逻辑
+- 新增 Rust `block` 默认只接入单一中央分发层
 
-## 公共类型归属
+## 4. 当前实现与目标差距
 
-- 契约模型、字段 schema、校验问题、契约加载错误：放在 `blocks-contract`
-- 发现结果、注册条目、目录扫描错误：放在 `blocks-registry`
-- 执行记录、运行错误、后续日志模型：放在 `blocks-runtime`
-- 组合清单、bind 校验、执行计划和组合错误：放在 `blocks-composer`
-- 静态 block 执行映射：放在 `blocks-core`
-- 纯展示和退出码：放在 `blocks-cli`
+当前仓库仍有几个过渡问题：
 
-原则：公共类型只放在最低合理层，避免同一概念在多个 crate 重复定义。
+- 目录和命名已切到 `mocs/`、`moc.yaml`、`blocks-moc`
+- 描述层已经支持类型、协议和可选校验流，但 `verification.flows` 仍是过渡能力
+- 示例已同时覆盖 `backend_app(console)` 和 `rust_lib`
+- 当前公共 Rust block 已具备独立 crate 入口，主要示例已直接依赖这些 crate
+- `moc run` 已可分发到 descriptor-only Rust backend moc 的真实入口
+- 当前已包含最小 `frontend_app` 结构样例，并已提供本地静态预览与真实 Tauri 宿主运行入口
 
-## 错误流转
+因此，下一轮整改应优先做“行为模型回正”，再继续扩展功能。
 
-- 每个 crate 定义自己的错误类型。
-- 下层错误向上层传播时保留原始 source，不转换为临时字符串。
-- CLI 只负责最终格式化输出，不吞掉结构化错误来源。
+## 5. MOC 层约束
 
-当前错误链：
+- `moc.main` 是自由代码，不是步骤图解释器
+- `moc.main` 可以自由调用 `block`
+- `moc.main` 可以自由调用内部私有 `block`
+- 一个 `moc` 只允许一种交付类型
+- 多服务、多终端应拆成多个 `moc`
 
-```text
-blocks-contract::ContractLoadError
-blocks-registry::RegistryError -> wraps ContractLoadError / io::Error
-blocks-runtime::RuntimeError -> wraps validation / execution errors
-blocks-composer::ComposeError -> wraps manifest / bind / plan failures
-app launcher -> orchestrates registry / composer / runtime failures
-CLI surface -> prints lower-level errors without swallowing the source
-```
+## 6. 非目标
 
-## 当前非目标
+当前不在这一轮引入：
 
-- 不在这一轮引入远程 registry
-- 不在这一轮引入复杂控制流（并行、分支、恢复图）
-- 不在这一轮引入前端耦合
+- 复杂工作流引擎
+- 跨进程自动编排器
+- 多 moc 自动部署系统
+- 完整 BCL 编译器
 
-这份草图是 P0 的架构基线；后续新增 crate 或跨层引用前，应先修改本文件再实现。
+先把 `moc` 模型走正，再向上扩展。

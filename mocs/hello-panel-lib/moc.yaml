@@ -1,0 +1,29 @@
+id: hello-panel-lib
+name: Hello Panel Lib
+type: frontend_lib
+language: tauri_ts
+entry: src/index.ts
+public_contract:
+  input_schema: {}
+  output_schema:
+    mounted:
+      type: boolean
+      required: true
+uses:
+  blocks:
+    - ui.dom.mount_text
+  internal_blocks: []
+depends_on_mocs: []
+protocols:
+  - name: mount-hello-panel
+    channel: webview
+    input_schema: {}
+    output_schema:
+      mounted:
+        type: boolean
+        required: true
+verification:
+  commands:
+    - review src/index.ts and preview/index.html
+acceptance_criteria:
+  - exports a reusable frontend function that mounts the hello text

@@ -1,0 +1,46 @@
+id: hello-pipeline
+name: Hello Pipeline
+type: backend_app
+backend_mode: console
+language: rust
+entry: backend/src/main.rs
+public_contract:
+  input_schema:
+    path:
+      type: string
+      required: true
+    text:
+      type: string
+      required: true
+  output_schema:
+    text:
+      type: string
+      required: true
+uses:
+  blocks:
+    - core.fs.write_text
+    - core.fs.read_text
+  internal_blocks: []
+depends_on_mocs: []
+protocols: []
+verification:
+  commands:
+    - cargo test
+  entry_flow: plan
+  flows:
+    - id: plan
+      steps:
+        - id: write
+          block: core.fs.write_text
+        - id: read
+          block: core.fs.read_text
+      binds:
+        - from: input.path
+          to: write.path
+        - from: input.text
+          to: write.text
+        - from: write.path
+          to: read.path
+acceptance_criteria:
+  - writes the provided text to disk
+  - reads the same text back

@@ -1,0 +1,72 @@
+id: ui.counter.mount
+name: UI Counter Mount
+version: 0.1.0
+status: candidate
+owner: blocks-frontend-team
+purpose: Mount a counter UI into the current frontend host.
+scope:
+  - Render counter panel and bind increment/decrement interactions.
+non_goals:
+  - Persisting counter state across sessions.
+  - Routing or page composition.
+inputs:
+  - name: initial_count
+    description: Optional initial numeric count.
+input_schema:
+  initial_count:
+    type: integer
+    required: false
+preconditions:
+  - Frontend runtime has a valid mount root.
+outputs:
+  - name: mounted
+    description: Whether mount succeeded.
+output_schema:
+  mounted:
+    type: boolean
+    required: true
+postconditions:
+  - Counter component is mounted when mounted=true.
+implementation:
+  kind: tauri_ts
+  entry: tauri_ts/src/index.ts
+  target: frontend
+dependencies:
+  runtime:
+    - DOM APIs
+    - Tauri webview host
+side_effects:
+  - Mutates DOM under mount root.
+timeouts:
+  default_ms: 1000
+  max_ms: 5000
+resource_limits:
+  memory_mb: 64
+  cpu_ms: 500
+failure_modes:
+  - id: invalid_input
+    when: initial_count value is invalid.
+  - id: dependency_unavailable
+    when: mount root or DOM API is unavailable.
+  - id: internal_error
+    when: render pipeline fails.
+error_codes:
+  - invalid_input
+  - dependency_unavailable
+  - internal_error
+recovery_strategy:
+  - Provide fallback mount root and default initial_count.
+  - Re-render after host readiness check.
+verification:
+  automated:
+    - npm --prefix mocs/counter-panel-web run test
+  manual:
+    - Run moc dev and verify interactive counter mount.
+evaluation:
+  quality_gates:
+    - Mounted flag reflects actual DOM mount state.
+    - Error states are surfaced with diagnostics.
+acceptance_criteria:
+  - Default mount returns mounted=true.
+  - Invalid input fails with structured error code.
+  - Host probe can detect mount success.

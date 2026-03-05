@@ -1,12 +1,21 @@
 id: core.llm.chat
 name: LLM Chat
 version: 0.1.0
-status: draft
+status: active
+owner: blocks-core-team
 purpose: Produce a text response from a prompt.
-implementation:
-  kind: rust
-  entry: rust/lib.rs
-  target: backend
+scope:
+  - Return text output derived from prompt input in local MVP runtime.
+non_goals:
+  - Calling external LLM providers.
+  - Conversation history persistence.
+inputs:
+  - name: prompt
+    description: User prompt text.
+  - name: system
+    description: Optional system instruction.
+  - name: model
+    description: Optional model selector.
 input_schema:
   prompt:
     type: string
@@ -18,7 +27,81 @@ input_schema:
   model:
     type: string
     required: false
+preconditions:
+  - Input prompt is provided and non-empty.
+outputs:
+  - name: text
+    description: Response text.
 output_schema:
   text:
     type: string
     required: true
+postconditions:
+  - Response text is non-empty for successful execution.
+implementation:
+  kind: rust
+  entry: rust/lib.rs
+  target: backend
+dependencies:
+  runtime:
+    - serde_json
+side_effects:
+  - none
+timeouts:
+  default_ms: 500
+  max_ms: 2000
+resource_limits:
+  memory_mb: 64
+  cpu_ms: 300
+failure_modes:
+  - id: invalid_input
+    when: Prompt payload fails validation.
+  - id: internal_error
+    when: Runtime handling fails unexpectedly.
+error_codes:
+  - invalid_input
+  - internal_error
+recovery_strategy:
+  - Validate prompt before invocation.
+  - Retry only for transient runtime failures.
+verification:
+  automated:
+    - cargo test -p blocks-runtime
+  manual:
+    - Execute with sample prompt and verify text field output.
+evaluation:
+  quality_gates:
+    - Output schema validation passes.
+    - Failure taxonomy mapping is stable.
+acceptance_criteria:
+  - Valid prompt returns text output.
+  - Invalid prompt fails with invalid_input taxonomy.
+  - Diagnostics preserve trace_id linkage.
+debug:
+  enabled_in_dev: true
+  emits_structured_logs: true
+  log_fields:
+    - timestamp
+    - level
+    - event
+    - block_id
+    - block_version
+    - execution_id
+    - trace_id
+observe:
+  metrics:
+    - execution_total
+    - execution_failed_total
+    - execution_latency_ms
+  emits_failure_artifact: true
+  artifact_policy:
+    mode: on_failure
+    on_failure_minimum:
+      include_input_snapshot: true
+      include_error_report: true
+      include_output_snapshot: conditional_when_present
+    redaction_profile: basic
+errors:
+  taxonomy:
+    - id: invalid_input
+    - id: internal_error

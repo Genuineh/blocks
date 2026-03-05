@@ -1,0 +1,36 @@
+id: greeting-panel-web
+name: Greeting Panel Web
+type: frontend_app
+language: tauri_ts
+entry: src/main.ts
+public_contract:
+  input_schema: {}
+  output_schema:
+    mounted:
+      type: boolean
+      required: true
+uses:
+  blocks: []
+  internal_blocks: []
+depends_on_mocs:
+  - moc: greeting-api-service
+    protocol: greeting-http
+protocols:
+  - name: greeting-http
+    channel: http
+    input_schema: {}
+    output_schema:
+      title:
+        type: string
+        required: true
+      message:
+        type: string
+        required: true
+verification:
+  commands:
+    - node --test tests/greeting_panel.test.mjs
+    - cargo --offline run --manifest-path src-tauri/Cargo.toml -- --headless-probe
+acceptance_criteria:
+  - renders loading, success, and error states without custom request headers
+  - fetches GET /api/v1/greeting from greeting-api-service and renders the returned title and message
+  - documents the manual browser or Tauri run needed for full fetch-plus-render verification

@@ -1,0 +1,39 @@
+id: echo-pipeline
+name: Echo Pipeline
+type: backend_app
+backend_mode: console
+language: rust
+entry: backend/src/main.rs
+public_contract:
+  input_schema:
+    text:
+      type: string
+      required: true
+  output_schema:
+    text:
+      type: string
+      required: true
+uses:
+  blocks:
+    - demo.echo
+  internal_blocks: []
+depends_on_mocs: []
+protocols: []
+verification:
+  commands:
+    - cargo test
+  entry_flow: plan
+  flows:
+    - id: plan
+      steps:
+        - id: first
+          block: demo.echo
+        - id: second
+          block: demo.echo
+      binds:
+        - from: input.text
+          to: first.text
+        - from: first.text
+          to: second.text
+acceptance_criteria:
+  - echoes the provided text through two blocks

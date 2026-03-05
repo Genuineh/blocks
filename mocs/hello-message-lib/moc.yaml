@@ -1,0 +1,28 @@
+id: hello-message-lib
+name: Hello Message Lib
+type: rust_lib
+language: rust
+entry: src/lib.rs
+public_contract:
+  input_schema: {}
+  output_schema:
+    text:
+      type: string
+      required: true
+uses:
+  blocks: []
+  internal_blocks: []
+depends_on_mocs: []
+protocols:
+  - name: hello-message
+    channel: memory
+    input_schema: {}
+    output_schema:
+      text:
+        type: string
+        required: true
+verification:
+  commands:
+    - cargo test -p hello-message-lib
+acceptance_criteria:
+  - returns the fixed hello world message

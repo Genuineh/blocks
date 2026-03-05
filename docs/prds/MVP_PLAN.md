@@ -1,643 +1,185 @@
-# blocks MVP 规划（Rust + Tauri）
+# blocks MVP 规划（MOC 模型）
 
-## 目标
+## 1. 当前结论
 
-基于当前白皮书，第一阶段先验证一个最小但完整的闭环：
+最新模型应明确收敛为两层：
 
-1. AI 可以基于统一规范创建新的 `block`。
-2. AI 可以使用已有 `block` 组装出一个独立可运行程序。
-3. 运行时可以在执行前后做契约校验、记录结果，并提供基础失败恢复。
+- `block`：稳定、可验证、可复用的库能力
+- `moc`：`my own creation`，最终交付单元，拥有真实代码入口，负责对外提供产品能力
 
-第二阶段再补上 `BCL`，把“AI 如何使用 blocks”也纳入编译期检查。
+这意味着：
 
-这个顺序的核心是：先证明 `block` 和运行时成立，再证明 `block` 组合语言成立。
+- `block.yaml` 只描述 `block`
+- `moc.yaml` 只描述 `moc`
+- 真正运行的是 `moc` 的代码入口，不是描述文件
 
-## 开发与迭代原则
+## 2. moc 的核心定义
 
-### 架构优先
+### 2.1 moc 才是交付单元
 
-实现前先做宏观架构分析，再进入局部细节。每一轮迭代都应先回答：
+`moc` 不是流程图，也不是一份声明式绑定文件。`moc` 的本质是一个单一类型的可交付单元。
 
-- 这次变更影响哪些模块和边界
-- 公共类型应该归属在哪一层
-- 依赖方向是否仍然单向、清晰
-- 失败路径和恢复路径是否仍然可解释
+`moc` 的主入口必须是自由代码，例如：
 
-如果这些问题没有先收敛，就不应该直接进入实现。
+- `src/main.rs`
+- `src/lib.rs`
+- `src/` + `src-tauri/`
 
-### TDD 优先
+主入口代码可以自由：
 
-默认采用 `red/green TDD`：
+- 调用公共 `block`
+- 调用当前 `moc` 内部私有 `block`
+- 组织控制流
+- 做错误处理
+- 与其他 `moc` 按协议交互
 
-1. 先写失败测试，证明当前行为不满足目标。
-2. 只做最小实现让测试通过。
-3. 在测试护栏内重构，清理命名、边界和重复逻辑。
+### 2.2 moc 类型
 
-第一阶段尤其要优先为契约解析、运行时校验和组合绑定写失败测试。
+每个 `moc` 只能属于一种类型：
 
-### 安全迭代
+- `rust_lib`
+- `frontend_lib`
+- `frontend_app`
+- `backend_app`
 
-每次只推进一个清晰边界内的变化，避免同时改动契约模型、执行模型和前端 block 组装层。优先通过小步增量方式推进，始终让已有测试和示例应用保持可回归。
+当 `type = backend_app` 时，还必须声明：
 
-### 严格验收
+- `backend_mode: console | service`
 
-验收标准从严，不以“功能演示成功一次”为完成。任何阶段都应同时满足：
+约束：
 
-- 架构边界没有退化
-- 新行为有测试证明
-- 失败路径可观测、可定位
-- 文档、示例和操作入口同步更新
-- 结果是可维护资产，而不是临时补丁
+- 一个 `moc` 不能同时是前端和后端应用
+- 一个 `moc` 不能同时是库和应用
+- 多服务、多终端系统必须拆为多个 `moc`
 
-## 总体技术路线
+### 2.3 moc 与 block 的关系
 
-### 核心判断
+- `block` 对 `moc` 来说是库能力，不是应用
+- `moc` 可以有内部私有 `block`
+- 内部私有 `block` 只服务于当前 `moc`
+- 当内部私有 `block` 跨单元复用时，应升级为公共 `block`
 
-- 后端核心全部用 `Rust`，保证类型约束、可执行验证、交付为单二进制更容易。
-- 前端端侧用 `Tauri + TypeScript`，用于组装前端能力 block，并承载前端交互、预览和调试；底层契约、发现与运行时逻辑仍由 Rust 核心负责。
-- `block.yaml` 只是描述文件，不是实现文件；真正的 block 能力必须由 `Rust` 或 `Tauri + TS` 代码承载。
-- `Rust` block 本质上是库能力，可应用于后端、共享逻辑，必要时也可承载前端共享库逻辑。
-- `Tauri + TS` block 是前端能力，只能在前端启动器中运行。
-- 第一阶段不做复杂分布式运行时，不做远程仓库，不做在线注册中心。
-- 第一阶段也不做完整 `BCL` 编译器，只做一个更轻的描述与验证层。
+## 3. moc.yaml
 
-### 最小架构
+建议第一阶段收敛到 `moc.yaml`，并让它作为唯一的上层描述文件。
 
-```text
-blocks/
-  crates/
-    blocks-contract/
-    blocks-registry/
-    blocks-runtime/
-    blocks-core/
-    blocks-cli/
-    blocks-composer/
-  blocks/
-    <block-id>/
-      block.yaml
-      rust/
-        lib.rs
-      tauri_ts/        # optional
-  skills/
-    create-block.md
-    compose-app.md
-  apps/
-    <app-name>/
-      app.yaml          # optional descriptor / validation metadata
-      backend/
-        Cargo.toml
-        src/main.rs     # Rust launcher
-      frontend/         # optional
-        src-tauri/
-        src/            # Tauri + TS launcher
-```
+建议最小字段：
 
-这个结构有一个硬约束：`block.yaml` 只描述，不承载实现；`app.yaml` 只描述 app 使用了哪些 block 和哪些约束，不能替代真正的 app 启动代码。实际对外提供能力的，是 app 内的 Rust 启动器和可选的 Tauri + TS 前端启动器。
+- `id`
+- `name`
+- `type`
+- `backend_mode`（仅 `backend_app`）
+- `language`
+- `entry`
+- `uses.blocks`
+- `uses.internal_blocks`
+- `depends_on_mocs`
+- `protocols`
+- `verification`
+- `acceptance_criteria`
 
-### 运行模型
+关键边界：
 
-第一阶段把系统收敛成 6 个核心对象：
+- `moc.yaml` 只做描述、校验、发现和生成辅助
+- `moc.yaml` 不能替代真实入口代码
+- `moc.yaml` 不应把 `moc.main` 限制成固定步骤图
 
-- `Block Contract`：`block.yaml`，定义输入、输出、前后置条件、失败策略。
-- `Block Implementation`：由 `Rust` 或 `Tauri + TS` 代码实现具体能力。
-- `Registry`：扫描本地 `blocks/` 目录，发现可用 block。
-- `Runtime`：按契约执行 block，做验证、日志、失败恢复。
-- `Core Runner`：静态链接当前内置 block 实现，向 runtime 提供统一执行入口。
-- `App Launcher`：用 Rust 和可选的 Tauri + TS 代码启动 app，并在代码中组织 block 调用。
+## 4. 多 MOC 系统
 
-为了控制复杂度，第一阶段还需要遵守三条架构约束：
+复杂系统不应由单个 `moc` 同时承载多个服务或多个终端。
 
-- `Contract` 负责定义和验证，不负责执行。
-- `Registry` 负责发现和索引，不负责调度。
-- `Runtime` 负责执行胶水，不承载具体 block 业务。
-- `App Launcher` 才是 app 的真实运行入口；app 逻辑应写在启动器代码中，而不是只写在描述文件中。
+正确方式：
 
-## 第一阶段 MVP
+1. 按最终交付形态拆分多个 `moc`
+2. 每个 `moc` 保持单一类型
+3. 通过明确协议连接这些 `moc`
 
-### 范围
+协议要求：
 
-第一阶段只做“可运行闭环”，不追求生态完整。
+- 输入输出契约明确
+- 版本边界明确
+- 错误行为可观测
+- 可独立测试
 
-进入实现前，先完成一份简短架构草图，明确：
+## 5. 第一阶段 MVP（修正后）
 
-- crate 边界
-- 公共模型归属
-- 错误类型分层
-- CLI 到 runtime 的调用链
+第一阶段不再以“声明式顶层组合器”作为目标，而应以“可运行的单一类型 moc”作为目标。
 
-没有这份草图，不进入编码阶段。
+必须具备：
 
-必须有的交付物：
+1. 5 个左右核心公共 `block`
+2. 统一 `block` 契约与 registry
+3. 单 `block` 运行时
+4. `moc.yaml` 最小描述层
+5. 至少一个真实 `backend_app` 示例
+6. 至少一个 `rust_lib` 或 `frontend_lib` 示例
+7. 两份 AI 技能文档：
+   - 如何创建 `block`
+   - 如何创建 `moc`
 
-1. 5 个左右核心 `block`
-2. 统一 Contract SDK
-3. 本地 Registry
-4. 可执行 Runtime
-5. 一个可用的 `blocks` CLI
-6. 两份给 AI 使用的 `skills`
-7. 一个由 Rust 启动器承载的独立示例程序
-8. 一个最小 Tauri + TS 前端启动器示例（用于前端能力 block）
+### 第一阶段最小示例
 
-### 第一阶段必须实现的能力
+建议示例从“hello-pipeline”调整为“hello-world-console”：
 
-#### 1. Contract SDK（最优先）
+- `moc.type = backend_app`
+- `moc.backend_mode = console`
+- `moc.main` 在 Rust 中自由调用：
+  - 一个公共 `block`，如 `core.console.write_line`
+  - 或一个当前单元的内部私有 `block`
+- 向控制台输出 `hello world`
 
-用一个轻量 Rust crate 统一处理所有契约逻辑，避免每个 block 自己手写校验。
+这个示例更符合真实模型，因为它证明：
 
-建议职责：
+- `moc.main` 是自由代码
+- `block` 是被调用的能力
+- `moc` 自己也可以拥有内部私有能力
 
-- 解析 `block.yaml`
-- 输入输出 schema 校验
-- 前置条件检查
-- 后置条件检查
-- 标准错误结构
-- 标准执行结果结构
+## 6. 当前代码与目标模型的差距
 
-建议 crate：`crates/blocks-contract`
+当前仓库已经完成了一轮较早的顶层原型，并已完成命名迁移，但仍与最新模型存在差距：
 
-建议核心类型：
+- 路径和命名已迁到 `mocs/`、`moc.yaml`、`blocks-moc`
+- `blocks-moc` 已回到描述层，但可选 `verification.flows` 仍是过渡期能力，不应重新膨胀为运行时
+- 当前已补齐 `hello-message-lib` 这样的 `rust_lib` 示例，并已支持最小跨 `moc` 协议校验
+- 当前公共 Rust `block` 已具备独立 crate 入口，证明 `moc` 可直接依赖 block 代码
+- 当前已提供 `blocks moc run` 作为统一入口，Rust backend `moc` 会优先分发到真实启动器
+- 当前已补齐 `frontend_app` 的最小结构样例，并已提供真实 Tauri 宿主与安全的 headless probe 路径，用于固定 Tauri + TypeScript 边界
+- 技能文档已经迁到 `build-moc`，并已明确“先写真实 launcher，再决定是否加验证 flow”
 
-```rust
-pub struct BlockContract { ... }
-pub struct ExecutionInput { ... }
-pub struct ExecutionOutput { ... }
-pub struct ValidationIssue { ... }
+因此，当前最优先任务不是继续扩功能，而是先把模型迁回 `moc`。
 
-pub trait ContractValidator {
-    fn validate_input(&self, input: &Value) -> Result<(), Vec<ValidationIssue>>;
-    fn validate_output(&self, output: &Value) -> Result<(), Vec<ValidationIssue>>;
-}
-```
+## 7. 第二阶段 MVP（BCL 修正后）
 
-第一阶段不需要做完整 DSL 级条件表达式，可先支持：
+第二阶段再引入最小 `BCL`，但它的目标不应是编译出“顶层流程图”，而应是辅助生成和校验 `moc` 结构。
 
-- 必填字段
-- 基础类型
-- 字符串长度 / 枚举
-- 数值范围
-- 简单存在性断言
+建议输出：
 
-测试要求：
+- `moc.yaml`
+- 内部执行计划
+- `moc` 入口辅助代码骨架
 
-- 先写契约加载失败测试
-- 先写输入缺失 / 类型错误测试
-- 再实现最小通过路径
+`BCL` 的价值应放在：
 
-#### 2. Registry（本地发现）
+- 校验 `block` 使用是否合法
+- 校验 `moc` 类型边界是否合法
+- 校验跨 `moc` 协议是否匹配
 
-第一阶段只做本地文件夹扫描，不做远程源。
+## 8. 架构原则
 
-建议职责：
+- `block` 是库能力，不是最终产品
+- `moc` 是最终产品，不是流程图
+- 描述文件只做描述，不做运行入口
+- 主入口代码必须自由，但必须受契约约束
+- 一个 `moc` 只承载一种类型
+- 多端、多服务必须拆为多个 `moc`
 
-- 扫描 `blocks/*/block.yaml`
-- 读取 block 元数据
-- 按 `id` 建索引
-- 提供 `list` / `show` / `search`
+## 9. 当前最高优先级
 
-建议 crate：`crates/blocks-registry`
+下一轮实现应优先完成：
 
-建议 CLI：
+1. 为前端 `moc` 增加最小本地运行路径，而不只停留在结构样例
+2. 继续让统一入口覆盖更多 `moc` 类型，而不只覆盖 Rust backend
+3. 从静态前端预览继续推进到真实 Tauri 宿主运行
+4. 将更多示例迁到“直接依赖 block crate”的默认路径
 
-- `blocks list <blocks-root>`
-- `blocks show <block-id>`
-- `blocks search <keyword>`
-
-这一步解决“AI 不知道当前项目有哪些 block 可用”的问题。
-
-测试要求：
-
-- 目录不存在
-- `block.yaml` 缺失或损坏
-- 重复 `id`
-- 正常发现路径
-
-#### 3. Runtime（薄执行层）
-
-运行时只做胶水，不做复杂调度器。
-
-建议职责：
-
-- 根据 `block_id` 加载 contract + implementation
-- 执行前做输入校验与前置条件检查
-- 调用 block
-- 执行后做输出校验与后置条件检查
-- 记录执行日志
-- 当前默认 `fail_fast` 返回结构化错误，并为后续恢复策略预留扩展点
-
-建议 crate：`crates/blocks-runtime`
-
-建议统一入口：
-
-```rust
-runtime.execute("core.http.get", input)
-```
-
-后续可扩展 3 种失败恢复策略：
-
-- `fail_fast`
-- `retry_once`
-- `fallback_to_default`
-
-当前最小 MVP 先实现 `fail_fast`，不要在第一阶段引入复杂规则引擎。
-
-测试要求：
-
-- 输入校验失败时不执行 block
-- block 执行失败时返回结构化错误
-- 输出校验失败时能阻断成功结果
-- 为后续 `retry_once` / `fallback_to_default` 预留清晰扩展边界
-
-#### 4. Composer（轻量描述与验证层，不是最终 app 运行时）
-
-为了让 AI 能先描述 block 之间的关系，第一阶段可以保留一个极简组合格式；但它不应被视为最终 app 运行时。
-
-建议使用 `app.yaml`：
-
-```yaml
-name: hello-pipeline
-entry: main
-flows:
-  - id: main
-    steps:
-      - id: fetch
-        block: core.http.get
-      - id: parse
-        block: core.json.transform
-      - id: save
-        block: core.fs.write_text
-    binds:
-      - from: input.url
-        to: fetch.url
-      - from: fetch.body
-        to: parse.source
-      - from: parse.result
-        to: save.content
-```
-
-建议 crate：`crates/blocks-composer`
-
-第一阶段它只做：
-
-- 解析组合清单
-- 校验步骤引用的 block 是否存在
-- 校验基础绑定是否存在、类型是否兼容
-- 作为生成或校验 app 启动器代码的辅助输入
-
-这一步本质上是“BCL 前的过渡层”，也是“代码启动器前的验证层”，不是 app 本身。
-
-架构约束：
-
-- `composer` 只产出描述、校验结果或辅助执行计划，不直接承载 block 实现
-- `composer` 不能替代 app 的 Rust / Tauri 启动器
-- `composer` 不引入复杂控制流，保持为 BCL 的过渡层
-
-测试要求：
-
-- 未知 block
-- 缺失 bind
-- 类型不兼容
-- 串行成功路径
-
-#### 5. CLI（AI 与人类共同入口）
-
-CLI 是第一阶段真正的产品入口，比桌面 UI 更重要。
-
-建议 crate：`crates/blocks-cli`
-
-第一阶段当前最小命令集：
-
-- `blocks list`
-- `blocks show <blocks-root> <block-id>`
-- `blocks run <blocks-root> <block-id> <input-json-file>`
-- `blocks compose validate <blocks-root> <app-yaml>`
-- `cargo run --manifest-path apps/<app-name>/backend/Cargo.toml -- <blocks-root> <app-yaml> <input-json-file>`
-
-其中：
-
-- `blocks compose validate` 负责检查 app 描述是否合法，并生成最小执行计划
-- app 的真实运行入口由 `apps/<app-name>/backend/src/main.rs` 承载
-- 若存在前端，则由 `apps/<app-name>/frontend/` 中的 Tauri + TS 启动器承载前端能力 block
-
-这会直接成为 AI 使用本项目的标准操作面。
-
-架构约束：
-
-- CLI 只编排调用，不复制契约验证或执行逻辑
-- 任何核心校验都必须落在底层 crate，可被测试复用
-
-#### 6. 核心 Blocks（先做 5 个）
-
-第一阶段只做通用、高复用、低歧义能力。
-
-建议最小集合：
-
-1. `core.fs.read_text`
-2. `core.fs.write_text`
-3. `core.http.get`
-4. `core.json.transform`
-5. `core.llm.chat`
-
-可选第 6 个：
-
-6. `core.template.render`
-
-选择原则：
-
-- 足够通用
-- 输入输出容易结构化
-- 容易验证成功与失败
-- 能组合出真实小程序
-
-暂时不要做数据库、鉴权、异步任务、长流程工作流。
-
-#### 7. Skills（第一阶段关键交付）
-
-第一阶段不是先做“大量 block”，而是给 AI 一套能持续生产 block 的稳定操作指南。
-
-建议提供两份技能文档：
-
-- `skills/create-block.md`
-- `skills/compose-app.md`
-
-`create-block.md` 负责约束 AI：
-
-- 如何判断某个需求是否应该沉淀为 block
-- 如何填写 `block.yaml`
-- 如何编写最小实现
-- 如何补齐测试与示例
-- 如何用 `cargo test` 和 `blocks show` 自检
-
-`compose-app.md` 负责约束 AI：
-
-- 如何先枚举当前可用 blocks
-- 如何识别能力缺口
-- 如何生成 `app.yaml`
-- 如何处理输入输出绑定
-- 如何先校验 `app.yaml`
-- 如何通过 app 启动器代码运行程序
-- 如何在失败时回退到补充 block
-
-这两份文档就是第一阶段“AI 可稳定使用”的真正杠杆。
-
-#### 8. 最小 Tauri 前端 Block 启动器
-
-第一阶段中，`Tauri + TS` 的职责不是单纯做桌面壳，而是作为前端技术栈去启动前端能力 block；前端功能编排也应写在前端启动器代码中。
-
-建议页面只包含：
-
-- 当前 block 列表
-- block contract 查看器
-- 前端 block 组装面板
-- 预览 / 调试面板
-- 最近执行日志
-
-建议 Tauri 复用 Rust 后端能力完成契约读取、发现和执行，不在前端复制核心业务逻辑。
-
-前端范围要严格控制，否则会稀释 MVP。
-
-架构约束：
-
-- Tauri 必须复用核心契约和可共享能力定义
-- 前端负责前端能力 block 的启动与交互，不是新的底层业务层
-
-### 第一阶段推荐目录结构
-
-```text
-blocks/
-  <block-id>/
-    block.yaml
-    README.md
-    rust/
-      lib.rs
-    tauri_ts/         # optional, frontend-only blocks
-
-apps/
-  <app-name>/
-    app.yaml
-    input.example.json
-    README.md
-    backend/
-      Cargo.toml
-      src/main.rs
-    frontend/         # optional
-```
-
-### 第一阶段验收标准
-
-做到以下几点，就算第一阶段 MVP 成立：
-
-1. 可以按约定目录结构创建一个标准 block 模板（`block.yaml + rust/lib.rs`）。
-2. AI 可以按 `skills/create-block.md` 新增一个 block，并通过 `cargo test` 与 `blocks show` 自检。
-3. 可以执行 `blocks list <blocks-root>` 和 `blocks show <blocks-root> <block-id>` 发现本地 blocks。
-4. 可以执行 `blocks run <blocks-root> <block-id> <input-json-file>`，且运行前后有契约校验。
-5. 可以执行 `blocks compose validate <blocks-root> apps/hello-pipeline/app.yaml` 校验组合描述，并通过 `apps/hello-pipeline/backend/src/main.rs` 顺序跑通一个小程序。
-6. 失败时至少能输出结构化错误，并保留清晰的恢复策略扩展点。
-7. 至少一个 app 能通过 Rust 启动器对外提供功能；若包含前端，则由 Tauri + TS 启动器承载前端能力 block。
-
-补充严格验收门槛：
-
-- 上述每项能力都必须有自动化测试或可重复的示例验证，不接受只靠人工演示。
-- 所有核心路径都要覆盖至少一个失败测试和一个成功测试。
-- `runtime`、`composer`、`cli` 的职责没有交叉污染。
-- 文档、技能文件、示例程序与 CLI 行为一致，不存在隐性操作前提。
-- 若为实现某项能力引入了明显更高的复杂度，则该方案应被回退重审。
-
-### 第一阶段建议示例程序
-
-建议做一个“网页摘要器”作为展示样例：
-
-1. `core.http.get` 拉取页面内容
-2. `core.llm.chat` 生成摘要
-3. `core.fs.write_text` 写入本地文件
-
-这个示例足够小，但能证明：
-
-- block 可独立运行
-- block 可组合
-- AI 可以按技能文件生成 block 和程序
-- 运行时能做校验与日志记录
-
-## 第二阶段 MVP（加入 BCL）
-
-### 第二阶段目标
-
-在第一阶段基础上，把“组合清单”升级为“可编译的组合语言”，重点不是追求语言复杂度，而是提升 AI 组合时的可检查性。
-
-第二阶段只做一个极简 `BCL` 子集：
-
-- `product`
-- `use`
-- `input`
-- `output`
-- `flow`
-- `bind`
-- `verify`
-- `recover`
-
-不要在第二阶段引入完整宏系统、泛型、复杂控制流。
-
-进入第二阶段前提：
-
-- 第一阶段测试基线稳定
-- 第一阶段架构边界未被前端或示例侵蚀
-- `app.yaml` 过渡层已经验证了最小组合模型成立，且 app 启动器模式已稳定
-
-### 第二阶段新增能力
-
-#### 1. BCL Parser
-
-用 Rust 实现一个最小语法解析器。
-
-建议技术：
-
-- `winnow` 或 `nom` 做 parser
-- 或者直接用 `pest`，优先选择开发速度
-
-输出：
-
-- 抽象语法树（AST）
-- 语法错误诊断
-
-#### 2. BCL Semantic Checker
-
-这是第二阶段的核心价值，不是 parser 本身。
-
-最小语义检查应包含：
-
-- 引用的 block 是否存在
-- block 状态是否允许使用
-- `bind` 的源/目标是否存在
-- 类型是否兼容
-- 关键输出是否可达
-- 是否存在未处理失败分支
-
-这一步直接把“AI 用错 block”从运行期前移到编译期。
-
-测试要求：
-
-- 未知 block 诊断
-- 缺失 bind 诊断
-- 类型不匹配诊断
-- 输出不可达诊断
-
-#### 3. BCL Compiler（先编译到描述层与启动器辅助产物）
-
-第二阶段不必直接编译成复杂运行产物，先编译到第一阶段的 `app.yaml`、内部执行计划或 app 启动器辅助代码即可。
-
-即：
-
-`BCL source -> AST -> semantic checks -> app descriptor / execution plan`
-
-这样可以复用第一阶段的 runtime，不要重复造轮子。
-
-#### 4. 更好的诊断反馈
-
-第二阶段需要把错误反馈显式化，让 AI 更容易修正：
-
-- 未知 block
-- 版本不兼容
-- 缺失 bind
-- 类型不匹配
-- 输出不可达
-- 恢复策略缺失
-
-这是第二阶段最重要的“AI 友好性”能力。
-
-### 第二阶段验收标准
-
-做到以下几点，就算第二阶段成立：
-
-1. AI 可以生成一段合法的最小 BCL。
-2. 编译器能解析并生成 AST。
-3. 编译器能在运行前发现常见 block 使用错误。
-4. BCL 可以编译到第一阶段的执行计划并实际运行。
-5. 错误信息足够结构化，AI 能据此自动修正一次以上。
-
-补充严格验收门槛：
-
-- BCL 新增的复杂度必须被限制在“编译前检查”范围内，不能破坏第一阶段薄运行时原则。
-- 语义错误必须先通过自动化测试固定，再实现修复。
-- 编译到执行计划的结果必须与第一阶段运行模型兼容，不能平行造第二套执行系统。
-
-## 实施顺序建议
-
-### 里程碑一：先把后端核心跑通
-
-顺序：
-
-1. 先做架构草图和 crate 依赖审查
-2. 建 Rust workspace
-3. 先写 `blocks-contract` 失败测试，再实现最小契约能力
-4. 先写 `blocks-registry` 失败测试，再实现本地发现
-5. 先写 `blocks-runtime` 关键失败测试，再实现执行闭环
-6. 实现 `blocks-cli`
-
-这个阶段先不接 Tauri。
-
-### 里程碑二：补齐最小 block 与示例
-
-顺序：
-
-1. 先写 `app.yaml` 绑定与校验失败测试
-2. 做 `app.yaml` 描述与校验
-3. 做 5 个核心 blocks
-4. 用 Rust 启动器做 `hello-pipeline` 示例
-5. 写两份 skills
-
-这个阶段结束时，项目已经具备对外演示价值。
-
-### 里程碑三：接入 Tauri 前端 Block 启动器
-
-用 `Tauri + TS` 启动最小前端能力 block，并复用现有 Rust 核心能力：
-
-1. 浏览 blocks
-2. 查看 contract
-3. 启动前端 block
-4. 运行或预览前端结果
-5. 查看日志
-
-不要先做复杂前端工作流编辑器。
-
-进入本里程碑前，先确认前端只负责前端启动与交互，避免前端反向定义核心契约和执行行为。
-
-### 里程碑四：推进 BCL
-
-顺序：
-
-1. 先做最小语法
-2. 再做语义检查
-3. 最后复用 runtime 执行
-
-不要反过来先做“复杂语言设计”。
-
-每一步都必须先用测试固定预期错误，再补实现。
-
-## 明确不做的事
-
-为了保证 MVP 成立，以下内容应明确延后：
-
-- 远程 block 仓库
-- 多语言 block 实现（第一阶段只支持 Rust）
-- 沙箱执行系统
-- 分布式调度
-- GUI 流程编排器
-- 复杂权限系统
-- 完整版本解析与依赖求解器
-- 完整 BCL 生态和标准库
-
-这些都不是验证核心假设所必需的。
-
-## 结论
-
-最小可行路线非常明确：
-
-- 第一阶段验证“稳定 block + 统一契约 + 本地发现 + 薄运行时 + AI skills”这条链路。
-- 第二阶段验证“BCL 能让 AI 对 block 的使用在编译前被检查”。
-
-如果第一阶段做成，`blocks` 的基础假设就已经成立：
-
-- AI 可以稳定生产 block
-- AI 可以稳定使用 block
-- 项目可以由 block 组装出来
-
-如果第二阶段再做成，`blocks` 才从“可运行框架”升级为“可编译的软件生产模型”。
+在这一步完成前，不建议继续推进 Tauri 前端组装器或 `BCL` 实现。

@@ -1,0 +1,101 @@
+id: core.console.write_line
+name: Console Write Line
+version: 0.1.0
+status: active
+owner: blocks-core-team
+purpose: Write a single text line to standard output.
+scope:
+  - Emit one UTF-8 text line to stdout in backend runtime.
+non_goals:
+  - Structured logging aggregation.
+  - File or network output.
+inputs:
+  - name: text
+    description: UTF-8 text to write.
+input_schema:
+  text:
+    type: string
+    required: true
+    min_length: 1
+preconditions:
+  - Standard output stream is available.
+outputs:
+  - name: written
+    description: Whether output write completed.
+output_schema:
+  written:
+    type: boolean
+    required: true
+postconditions:
+  - Exactly one line write is attempted.
+implementation:
+  kind: rust
+  entry: rust/lib.rs
+  target: backend
+dependencies:
+  runtime:
+    - std::io
+side_effects:
+  - Writes to process stdout.
+timeouts:
+  default_ms: 500
+  max_ms: 2000
+resource_limits:
+  memory_mb: 32
+  cpu_ms: 200
+failure_modes:
+  - id: invalid_input
+    when: Input text fails schema validation.
+  - id: internal_error
+    when: Output stream write fails.
+  - id: invalid_output
+    when: Output payload does not match schema.
+error_codes:
+  - invalid_input
+  - internal_error
+  - invalid_output
+recovery_strategy:
+  - Validate text before invoking the block.
+  - Retry only on transient I/O failures.
+verification:
+  automated:
+    - cargo test -p blocks-runtime
+  manual:
+    - Run hello-world console moc and confirm stdout has expected line.
+evaluation:
+  quality_gates:
+    - Output schema validation passes.
+    - Failure diagnostics include execution_id.
+acceptance_criteria:
+  - Valid text input returns written=true.
+  - Invalid input is rejected before execution.
+  - Failures emit redacted diagnostics.
+debug:
+  enabled_in_dev: true
+  emits_structured_logs: true
+  log_fields:
+    - timestamp
+    - level
+    - event
+    - block_id
+    - block_version
+    - execution_id
+    - trace_id
+observe:
+  metrics:
+    - execution_total
+    - execution_failed_total
+    - execution_latency_ms
+  emits_failure_artifact: true
+  artifact_policy:
+    mode: on_failure
+    on_failure_minimum:
+      include_input_snapshot: true
+      include_error_report: true
+      include_output_snapshot: conditional_when_present
+    redaction_profile: basic
+errors:
+  taxonomy:
+    - id: invalid_input
+    - id: internal_error
+    - id: invalid_output

@@ -1,5 +1,6 @@
 # Rust build output
 /target
+**/target/
 **/*.rs.bk
 
 # Node / Tauri frontend output
@@ -21,6 +22,10 @@ coverage/
 # Logs
 *.log
 
+# Local diagnostics artifacts
+.blocks/
+**/.blocks/
+
 # Editor and IDE files
 .idea/
 .vscode/
@@ -31,3 +36,4 @@ coverage/
 # OS-generated files
 .DS_Store
 Thumbs.db
+.codex/
