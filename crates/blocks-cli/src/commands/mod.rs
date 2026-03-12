@@ -1,5 +1,6 @@
 mod block;
 mod moc;
+mod moc_bcl;
 
 use blocks_registry::Registry;
 use blocks_runner_catalog::default_block_runner;
@@ -28,6 +29,36 @@ pub fn dispatch(args: Vec<String>) -> Result<String, String> {
             if command == "moc" && subcommand == "validate" =>
         {
             moc::validate_command(root, manifest_path)
+        }
+        [command, subcommand, action, root, source_path]
+            if command == "moc" && subcommand == "bcl" && action == "validate" =>
+        {
+            moc_bcl::validate_command(root, source_path, &[])
+        }
+        [command, subcommand, action, root, source_path, rest @ ..]
+            if command == "moc" && subcommand == "bcl" && action == "validate" =>
+        {
+            moc_bcl::validate_command(root, source_path, rest)
+        }
+        [command, subcommand, action, root, source_path]
+            if command == "moc" && subcommand == "bcl" && action == "plan" =>
+        {
+            moc_bcl::plan_command(root, source_path, &[])
+        }
+        [command, subcommand, action, root, source_path, rest @ ..]
+            if command == "moc" && subcommand == "bcl" && action == "plan" =>
+        {
+            moc_bcl::plan_command(root, source_path, rest)
+        }
+        [command, subcommand, action, root, source_path]
+            if command == "moc" && subcommand == "bcl" && action == "emit" =>
+        {
+            moc_bcl::emit_command(root, source_path, &[])
+        }
+        [command, subcommand, action, root, source_path, rest @ ..]
+            if command == "moc" && subcommand == "bcl" && action == "emit" =>
+        {
+            moc_bcl::emit_command(root, source_path, rest)
         }
         [command, subcommand, root, manifest_path] if command == "moc" && subcommand == "run" => {
             moc::run_command(root, manifest_path, None)

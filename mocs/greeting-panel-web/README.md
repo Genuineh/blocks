@@ -16,6 +16,17 @@ Those checks prove:
 
 They do **not** prove the real backend-to-frontend fetch+render join in one browser window.
 
+BCL trial workflow for this descriptor-only moc:
+
+```bash
+mkdir -p .tmp
+cargo run -p blocks-cli -- moc bcl validate blocks mocs/greeting-panel-web/moc.bcl --json
+cargo run -p blocks-cli -- moc bcl plan blocks mocs/greeting-panel-web/moc.bcl --json
+cargo run -p blocks-cli -- moc bcl emit blocks mocs/greeting-panel-web/moc.bcl --out .tmp/greeting-panel-web.generated.yaml --check-against mocs/greeting-panel-web/moc.yaml
+```
+
+This trial covers the `depends_on_mocs + protocols` case without changing the runtime path, which still reads `moc.yaml`.
+
 Manual verification for the real join:
 
 1. Start the backend: `cargo run --manifest-path mocs/greeting-api-service/backend/Cargo.toml`

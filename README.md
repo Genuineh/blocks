@@ -89,6 +89,7 @@ The goal of `blocks` is to add a layer of engineering constraints and verifiable
 - [docs/prds/R10_PHASE1_MINIMAL_RUNTIME_BOUNDARY_PLAN.md](./docs/prds/R10_PHASE1_MINIMAL_RUNTIME_BOUNDARY_PLAN.md): minimal R10 Phase 1 plan focused on unifying the run/verify runtime boundary, moc-level diagnostic ownership, and taxonomy mapping.
 - [docs/prds/BCL_MOC_ASSIST_PLAN.md](./docs/prds/BCL_MOC_ASSIST_PLAN.md): BCL establishment plan, defining BCL strictly as a `moc` authoring and validation assist layer rather than a runtime delivery boundary.
 - [docs/guide/README.md](./docs/guide/README.md): entry point for usage guides and contribution workflows.
+- [docs/guide/bcl_mvp_workflow.md](./docs/guide/bcl_mvp_workflow.md): practical guide for the current BCL MVP workflow, including validate/plan/emit/parity usage and authority boundaries.
 - [docs/decisions/README.md](./docs/decisions/README.md): index of architecture decision records.
 - [docs/decisions/001-enforce-contract-runtime-boundary.md](./docs/decisions/001-enforce-contract-runtime-boundary.md): decision record for strong contract enforcement, unified runtime boundaries, and CLI layering.
 - [docs/decisions/002-r10-phase1-runtime-observability-boundary.md](./docs/decisions/002-r10-phase1-runtime-observability-boundary.md): minimal R10 Phase 1 decision fixing unified runtime observability boundaries and controlled fallback behavior.
@@ -115,3 +116,21 @@ The goal of `blocks` is to add a layer of engineering constraints and verifiable
 - [mocs/greeting-panel-web/README.md](./mocs/greeting-panel-web/README.md): minimal real-data `frontend_app` moc example that fetches and renders a greeting from the backend.
 - [skills/create-block.md](./skills/create-block.md): standard process for creating a new block.
 - [skills/build-moc.md](./skills/build-moc.md): current skill guide for building a `moc`.
+
+## BCL Trial Workflow
+
+The BCL MVP core loop is now available for selected trial mocs while keeping `moc.yaml` as runtime authority. Repository gate rollout remains a Phase 4 follow-up.
+
+Example using `echo-pipeline`:
+
+```bash
+mkdir -p .tmp
+cargo run -p blocks-cli -- moc bcl validate blocks mocs/echo-pipeline/moc.bcl --json
+cargo run -p blocks-cli -- moc bcl plan blocks mocs/echo-pipeline/moc.bcl --json
+cargo run -p blocks-cli -- moc bcl emit blocks mocs/echo-pipeline/moc.bcl --out .tmp/echo-pipeline.generated.yaml --check-against mocs/echo-pipeline/moc.yaml
+```
+
+Current trial mocs:
+
+- `mocs/echo-pipeline`: flow-heavy parity proof
+- `mocs/greeting-panel-web`: protocol-heavy parity proof

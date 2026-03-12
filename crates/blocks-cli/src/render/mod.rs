@@ -2,7 +2,7 @@ use std::path::Path;
 
 use blocks_runtime::{DiagnosticArtifact, DiagnosticEvent};
 
-pub const USAGE: &str = "usage: blocks <list|show|search> <blocks-root> [query|block-id]\n       blocks run <blocks-root> <block-id> <input-json-file>\n       blocks block diagnose <blocks-root> <block-id> [--latest|--execution-id <id>] [--json]\n       blocks moc validate <blocks-root> <moc-yaml>\n       blocks moc run <blocks-root> <moc-yaml> [input-json-file]\n       blocks moc verify <blocks-root> <moc-yaml> [input-json-file]\n       blocks moc dev <blocks-root> <moc-yaml>\n       blocks moc diagnose <blocks-root> <moc-yaml> [--trace-id <id>] [--json]";
+pub const USAGE: &str = "usage: blocks <list|show|search> <blocks-root> [query|block-id]\n       blocks run <blocks-root> <block-id> <input-json-file>\n       blocks block diagnose <blocks-root> <block-id> [--latest|--execution-id <id>] [--json]\n       blocks moc validate <blocks-root> <moc-yaml>\n       blocks moc bcl validate <blocks-root> <moc.bcl> [--json]\n       blocks moc bcl plan <blocks-root> <moc.bcl> [--json]\n       blocks moc bcl emit <blocks-root> <moc.bcl> [--out <path>] [--check-against <moc.yaml>]\n       blocks moc run <blocks-root> <moc-yaml> [input-json-file]\n       blocks moc verify <blocks-root> <moc-yaml> [input-json-file]\n       blocks moc dev <blocks-root> <moc-yaml>\n       blocks moc diagnose <blocks-root> <moc-yaml> [--trace-id <id>] [--json]";
 
 pub fn render_block_diagnose_human(
     block_id: &str,

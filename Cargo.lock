@@ -71,9 +71,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "blocks-bcl"
+version = "0.1.0"
+dependencies = [
+ "blocks-contract",
+ "blocks-moc",
+ "blocks-registry",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "tempfile",
+ "thiserror",
+]
+
+[[package]]
 name = "blocks-cli"
 version = "0.1.0"
 dependencies = [
+ "blocks-bcl",
  "blocks-moc",
  "blocks-registry",
  "blocks-runner-catalog",

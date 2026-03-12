@@ -455,6 +455,8 @@ edition = "2024"
 
 [lib]
 path = "src/lib.rs"
+
+[workspace]
 "#,
     )
     .expect("cargo manifest should be written");
@@ -1334,4 +1336,339 @@ acceptance_criteria:
         artifact["input_snapshot"]["text"].as_str(),
         Some("***REDACTED***")
     );
+}
+
+#[test]
+fn validates_bcl_descriptor_with_json_output_from_cli_command() {
+    let temp_dir = TempDir::new().expect("temp dir should be created");
+    let blocks_root = temp_dir.path().join("blocks");
+    fs::create_dir_all(&blocks_root).expect("blocks root should be created");
+
+    let source_path = temp_dir.path().join("moc.bcl");
+    fs::write(
+        &source_path,
+        r#"
+moc hello {
+  name "Hello";
+  type backend_app(console);
+  language rust;
+  entry "backend/src/main.rs";
+  uses { }
+  depends_on_mocs { }
+  protocols { }
+  verification { command "cargo test"; }
+  accept "works";
+}
+"#,
+    )
+    .expect("bcl should be written");
+
+    let output = run(vec![
+        "moc".to_string(),
+        "bcl".to_string(),
+        "validate".to_string(),
+        blocks_root.display().to_string(),
+        source_path.display().to_string(),
+        "--json".to_string(),
+    ])
+    .expect("bcl validate should succeed");
+
+    let payload: Value =
+        serde_json::from_str(&output).expect("bcl validate output should be valid json");
+    let keys = top_level_keys(&payload);
+    assert_eq!(
+        keys,
+        BTreeSet::from([
+            "rule_results".to_string(),
+            "source".to_string(),
+            "status".to_string(),
+        ])
+    );
+    assert_eq!(payload["status"], "ok");
+    assert_eq!(payload["rule_results"], json!([]));
+}
+
+#[test]
+fn reports_bcl_syntax_error_with_json_diagnostics_from_cli_command() {
+    let temp_dir = TempDir::new().expect("temp dir should be created");
+    let blocks_root = temp_dir.path().join("blocks");
+    fs::create_dir_all(&blocks_root).expect("blocks root should be created");
+
+    let source_path = temp_dir.path().join("broken.bcl");
+    fs::write(
+        &source_path,
+        r#"
+moc bad {
+  name "Bad"
+}
+"#,
+    )
+    .expect("bcl should be written");
+
+    let output = run(vec![
+        "moc".to_string(),
+        "bcl".to_string(),
+        "validate".to_string(),
+        blocks_root.display().to_string(),
+        source_path.display().to_string(),
+        "--json".to_string(),
+    ])
+    .expect_err("bcl validate should return json diagnostics");
+
+    let payload: Value =
+        serde_json::from_str(&output).expect("bcl validate output should be valid json");
+    assert_eq!(payload["status"], "error");
+    let first = &payload["rule_results"][0];
+    assert_eq!(first["rule_id"], "BCL-SYNTAX-001");
+    assert_eq!(first["error_id"], "bcl.syntax.parse_error");
+    assert!(first["span"]["line"].as_u64().is_some());
+    assert!(first["span"]["column"].as_u64().is_some());
+}
+
+#[test]
+fn rejects_unknown_option_for_moc_bcl_validate_command() {
+    let temp_dir = TempDir::new().expect("temp dir should be created");
+    let blocks_root = temp_dir.path().join("blocks");
+    fs::create_dir_all(&blocks_root).expect("blocks root should be created");
+    let source_path = temp_dir.path().join("moc.bcl");
+    fs::write(&source_path, "moc demo { name \"x\"; type frontend_lib; language tauri_ts; entry \"src/main.ts\"; uses { } depends_on_mocs { } protocols { } verification { command \"test\"; } accept \"ok\"; }")
+        .expect("bcl should be written");
+
+    let error = run(vec![
+        "moc".to_string(),
+        "bcl".to_string(),
+        "validate".to_string(),
+        blocks_root.display().to_string(),
+        source_path.display().to_string(),
+        "--bad".to_string(),
+    ])
+    .expect_err("unknown option should fail");
+
+    assert!(error.contains("unknown option for moc bcl validate: --bad"));
+}
+
+#[test]
+fn reports_bcl_plan_as_stable_json_from_cli_command() {
+    let temp_dir = TempDir::new().expect("temp dir should be created");
+    let blocks_root = temp_dir.path().join("blocks");
+    write_block(
+        &blocks_root,
+        "demo.echo",
+        r#"
+id: demo.echo
+name: Demo Echo
+implementation:
+  kind: rust
+  entry: rust/lib.rs
+  target: shared
+input_schema:
+  text:
+    type: string
+    required: true
+output_schema:
+  text:
+    type: string
+    required: true
+"#,
+    );
+
+    let source_path = temp_dir.path().join("echo-plan.bcl");
+    fs::write(
+        &source_path,
+        r#"
+moc echo-plan {
+  name "Echo Plan";
+  type backend_app(console);
+  language rust;
+  entry "backend/src/main.rs";
+  input {
+    text: string required;
+  }
+  output {
+    text: string required;
+  }
+  uses {
+    block demo.echo;
+  }
+  depends_on_mocs { }
+  protocols { }
+  verification {
+    command "cargo test";
+    entry flow plan {
+      step echo = demo.echo;
+      bind input.text -> echo.text;
+    }
+  }
+  accept "works";
+}
+"#,
+    )
+    .expect("bcl should be written");
+
+    let output = run(vec![
+        "moc".to_string(),
+        "bcl".to_string(),
+        "plan".to_string(),
+        blocks_root.display().to_string(),
+        source_path.display().to_string(),
+        "--json".to_string(),
+    ])
+    .expect("bcl plan should succeed");
+
+    let payload: Value = serde_json::from_str(&output).expect("plan output should be valid json");
+    assert_eq!(payload["status"], "ok");
+    assert_eq!(payload["moc_id"], "echo-plan");
+    assert_eq!(payload["descriptor_only"], false);
+    assert_eq!(payload["verification"]["entry_flow"], "plan");
+    assert_eq!(payload["verification"]["plan"]["flow_id"], "plan");
+    assert_eq!(payload["verification"]["plan"]["steps"][0]["id"], "echo");
+    assert_eq!(
+        payload["verification"]["plan"]["steps"][0]["block"],
+        "demo.echo"
+    );
+}
+
+#[test]
+fn emits_bcl_and_checks_parity_against_manifest_from_cli_command() {
+    let temp_dir = TempDir::new().expect("temp dir should be created");
+    let blocks_root = temp_dir.path().join("blocks");
+    fs::create_dir_all(&blocks_root).expect("blocks root should be created");
+
+    let mocs_root = temp_dir.path().join("mocs");
+    let local_dir = mocs_root.join("greeting-panel");
+    fs::create_dir_all(&local_dir).expect("local dir should be created");
+    let source_path = local_dir.join("moc.bcl");
+    fs::write(
+        &source_path,
+        r#"
+moc greeting-panel {
+  name "Greeting Panel";
+  type frontend_app;
+  language tauri_ts;
+  entry "src/main.ts";
+  input { }
+  output {
+    mounted: boolean required;
+  }
+  uses { }
+  depends_on_mocs {
+    moc "greeting-api-service" via greeting-http;
+  }
+  protocols {
+    protocol greeting-http {
+      channel http;
+      input { }
+      output {
+        title: string required;
+        message: string required;
+      }
+    }
+  }
+  verification {
+    command "node --test tests/greeting_panel.test.mjs";
+  }
+  accept "works";
+}
+"#,
+    )
+    .expect("bcl should be written");
+
+    let manifest_path = temp_dir.path().join("greeting-panel.yaml");
+    fs::write(
+        &manifest_path,
+        r#"
+id: greeting-panel
+name: Greeting Panel
+type: frontend_app
+language: tauri_ts
+entry: src/main.ts
+public_contract:
+  input_schema: {}
+  output_schema:
+    mounted:
+      type: boolean
+      required: true
+uses:
+  blocks: []
+  internal_blocks: []
+depends_on_mocs:
+  - moc: greeting-api-service
+    protocol: greeting-http
+protocols:
+  - name: greeting-http
+    channel: http
+    input_schema: {}
+    output_schema:
+      title:
+        type: string
+        required: true
+      message:
+        type: string
+        required: true
+verification:
+  commands:
+    - node --test tests/greeting_panel.test.mjs
+acceptance_criteria:
+  - works
+"#,
+    )
+    .expect("manifest should be written");
+
+    let remote_dir = mocs_root.join("greeting-api-service");
+    fs::create_dir_all(&remote_dir).expect("remote dir should be created");
+    fs::write(
+        remote_dir.join("moc.yaml"),
+        r#"
+id: greeting-api-service
+name: Greeting Api Service
+type: backend_app
+backend_mode: service
+language: rust
+entry: backend/src/main.rs
+public_contract:
+  input_schema: {}
+  output_schema: {}
+uses:
+  blocks: []
+  internal_blocks: []
+depends_on_mocs: []
+protocols:
+  - name: greeting-http
+    channel: http
+    input_schema: {}
+    output_schema:
+      title:
+        type: string
+        required: true
+      message:
+        type: string
+        required: true
+verification:
+  commands:
+    - cargo test
+acceptance_criteria:
+  - works
+"#,
+    )
+    .expect("dependent moc should be written");
+
+    let out_path = temp_dir.path().join("emitted.yaml");
+    let output = run(vec![
+        "moc".to_string(),
+        "bcl".to_string(),
+        "emit".to_string(),
+        blocks_root.display().to_string(),
+        source_path.display().to_string(),
+        "--out".to_string(),
+        out_path.display().to_string(),
+        "--check-against".to_string(),
+        manifest_path.display().to_string(),
+    ])
+    .expect("emit should succeed");
+
+    assert!(output.contains("emitted moc yaml:"));
+    assert!(output.contains("parity: matched"));
+    let emitted = fs::read_to_string(&out_path).expect("emitted yaml should exist");
+    assert!(emitted.contains("id: greeting-panel"));
+    assert!(emitted.contains("name: Greeting Panel"));
 }

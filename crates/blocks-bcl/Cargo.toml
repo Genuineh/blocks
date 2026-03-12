@@ -1,20 +1,17 @@
 [package]
-name = "blocks-cli"
+name = "blocks-bcl"
 edition.workspace = true
 license.workspace = true
 version.workspace = true
 
-[[bin]]
-name = "blocks"
-path = "src/main.rs"
-
 [dependencies]
-blocks-bcl = { path = "../blocks-bcl" }
+blocks-contract = { path = "../blocks-contract" }
 blocks-moc = { path = "../blocks-moc" }
 blocks-registry = { path = "../blocks-registry" }
-blocks-runner-catalog = { path = "../blocks-runner-catalog" }
-blocks-runtime = { path = "../blocks-runtime" }
+serde.workspace = true
 serde_json.workspace = true
+serde_yaml.workspace = true
+thiserror.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true

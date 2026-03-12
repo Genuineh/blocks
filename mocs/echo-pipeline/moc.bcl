@@ -1,0 +1,27 @@
+moc echo-pipeline {
+  name "Echo Pipeline";
+  type backend_app(console);
+  language rust;
+  entry "backend/src/main.rs";
+  input {
+    text: string required;
+  }
+  output {
+    text: string required;
+  }
+  uses {
+    block demo.echo;
+  }
+  depends_on_mocs { }
+  protocols { }
+  verification {
+    command "cargo test";
+    entry flow plan {
+      step first = demo.echo;
+      step second = demo.echo;
+      bind input.text -> first.text;
+      bind first.text -> second.text;
+    }
+  }
+  accept "echoes the provided text through two blocks";
+}

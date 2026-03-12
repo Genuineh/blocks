@@ -1,5 +1,6 @@
 [workspace]
 members = [
+  "crates/blocks-bcl",
   "crates/blocks-contract",
   "crates/blocks-registry",
   "crates/blocks-runtime",

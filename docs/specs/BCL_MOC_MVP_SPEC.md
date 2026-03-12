@@ -1,9 +1,9 @@
 ---
-status: draft
-last_verified_commit: N/A
+status: active
+last_verified_commit: working-tree
 owner: Developer
 created: 2026-03-05
-updated: 2026-03-05
+updated: 2026-03-09
 version: 1.0
 related_prds:
   - docs/prds/BCL_MOC_ASSIST_PLAN.md
@@ -14,6 +14,24 @@ related_prds:
 ## Overview
 
 This specification defines the MVP technical boundary for BCL in this repository.
+
+## Current Status
+
+As of 2026-03-09, the BCL MVP core loop is achieved in the working tree:
+
+- `blocks moc bcl validate`
+- `blocks moc bcl plan`
+- `blocks moc bcl emit`
+- `--check-against <moc.yaml>` parity checks
+- trial `moc.bcl` coverage for `echo-pipeline` and `greeting-panel-web`
+- executable README command path for `validate -> plan -> emit --check-against`
+
+What remains open is Phase 4 operational rollout work, not MVP core completeness:
+
+- repository gate integration
+- warn -> error migration window
+- rollback switch documentation
+- additional hardening for unordered-array parity normalization
 
 Authoritative rule:
 - `moc` remains the delivery unit.
@@ -54,18 +72,17 @@ Authoritative rule:
 
 - BCL logic must not enter `blocks-runtime`.
 - BCL output must be validated again via `MocManifest` path before considered valid.
-- BCL diagnostics storage (`.blocks/bcl-diagnostics`) must remain separate from runtime diagnostics.
+- MVP does not require a separate persisted BCL diagnostics store; runtime diagnostics behavior must remain unchanged.
 
 ## CLI Specification
 
 ### `blocks moc bcl validate`
 
 Command:
-- `blocks moc bcl validate <blocks-root> <moc.bcl> [--json] [--against <moc.yaml>]`
+- `blocks moc bcl validate <blocks-root> <moc.bcl> [--json]`
 
 Behavior:
 - parse + semantic checks
-- optional parity check with provided manifest (mandatory in repo gate for opted-in mocs)
 - no file generation
 
 ### `blocks moc bcl plan`
@@ -107,12 +124,14 @@ To avoid dual-model drift, emitted manifest keys must follow `MOC_SPEC` canonica
 
 ```ebnf
 file         = "moc" ident "{" stmt* "}" ;
-stmt         = name_stmt | type_stmt | language_stmt | entry_stmt | uses_stmt | deps_stmt | protocols_stmt | verification_stmt | acceptance_stmt ;
+stmt         = name_stmt | type_stmt | language_stmt | entry_stmt | input_stmt | output_stmt | uses_stmt | deps_stmt | protocols_stmt | verification_stmt | acceptance_stmt ;
 name_stmt    = "name" string ";" ;
 type_stmt    = "type" moc_type ";" ;
 moc_type     = "rust_lib" | "frontend_lib" | "frontend_app" | "backend_app" ["(" ("console"|"service") ")"] ;
 language_stmt= "language" ("rust"|"tauri_ts") ";" ;
 entry_stmt   = "entry" string ";" ;
+input_stmt   = "input" schema ;
+output_stmt  = "output" schema ;
 uses_stmt    = "uses" "{" use_item* "}" ;
 use_item     = "block" ident ";" | "internal_block" ident ";" ;
 deps_stmt    = "depends_on_mocs" "{" dep_item* "}" ;
@@ -216,3 +235,4 @@ Rollback requirement:
 - generated `moc.yaml` passes existing `blocks-moc` validation
 - parity checks are stable for trial mocs
 - no runtime boundary regression introduced
+- Phase 4 rollout gate integration may remain pending after MVP core completion

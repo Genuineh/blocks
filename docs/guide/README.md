@@ -2,6 +2,10 @@
 
 This directory contains usage guides and contributor workflows.
 
+Current guides:
+
+- [bcl_mvp_workflow.md](./bcl_mvp_workflow.md): how to use the current BCL MVP safely, including `validate -> plan -> emit -> check-against`.
+
 Important:
 
 - The current sample set includes both descriptor-only `moc` files and optional validation-flow `moc` files.
