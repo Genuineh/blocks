@@ -1,6 +1,13 @@
+mod bcl;
 mod block;
+mod catalog;
+mod compat;
+mod conformance;
 mod moc;
 mod moc_bcl;
+mod pkg;
+mod runtime;
+mod upgrade;
 
 use blocks_registry::Registry;
 use blocks_runner_catalog::default_block_runner;
@@ -17,18 +24,141 @@ pub fn dispatch(args: Vec<String>) -> Result<String, String> {
         [command, root, block_id, input_path] if command == "run" => {
             run_command(root, block_id, input_path)
         }
+        [command, subcommand, rest @ ..] if command == "conformance" && subcommand == "run" => {
+            conformance::run_command(rest)
+        }
+        [command, rest @ ..] if command == "bcl" => bcl::run_command(rest),
+        [command, rest @ ..] if command == "pkg" => pkg::run_command(rest),
+        [command, rest @ ..] if command == "runtime" => runtime::run_command(rest),
+        [command, subcommand, root] if command == "catalog" && subcommand == "export" => {
+            catalog::export_command(root, &[])
+        }
+        [command, subcommand, root, rest @ ..]
+            if command == "catalog" && subcommand == "export" =>
+        {
+            catalog::export_command(root, rest)
+        }
+        [command, subcommand, root, query] if command == "catalog" && subcommand == "search" => {
+            catalog::search_command(root, query, &[])
+        }
+        [command, subcommand, root, query, rest @ ..]
+            if command == "catalog" && subcommand == "search" =>
+        {
+            catalog::search_command(root, query, rest)
+        }
+        [command, rest @ ..] if command == "compat" => compat::run_command(rest),
+        [command, rest @ ..] if command == "upgrade" => upgrade::run_command(rest),
+        [command, subcommand, blocks_root, block_id]
+            if command == "block" && subcommand == "init" =>
+        {
+            block::init_command(blocks_root, block_id, &[])
+        }
+        [command, subcommand, blocks_root, block_id, rest @ ..]
+            if command == "block" && subcommand == "init" =>
+        {
+            block::init_command(blocks_root, block_id, rest)
+        }
+        [command, subcommand, path_arg] if command == "block" && subcommand == "fmt" => {
+            block::fmt_command(path_arg)
+        }
+        [command, subcommand, path_arg] if command == "block" && subcommand == "check" => {
+            block::check_command(path_arg, &[])
+        }
+        [command, subcommand, path_arg, rest @ ..]
+            if command == "block" && subcommand == "check" =>
+        {
+            block::check_command(path_arg, rest)
+        }
+        [command, subcommand, path_arg] if command == "block" && subcommand == "test" => {
+            block::test_command(path_arg, &[])
+        }
+        [command, subcommand, path_arg, rest @ ..]
+            if command == "block" && subcommand == "test" =>
+        {
+            block::test_command(path_arg, rest)
+        }
+        [command, subcommand, path_arg] if command == "block" && subcommand == "eval" => {
+            block::eval_command(path_arg, &[])
+        }
+        [command, subcommand, path_arg, rest @ ..]
+            if command == "block" && subcommand == "eval" =>
+        {
+            block::eval_command(path_arg, rest)
+        }
         [command, subcommand, root, block_id] if command == "block" && subcommand == "diagnose" => {
             block::diagnose_command(root, block_id, &[])
+        }
+        [command, subcommand, root, block_id] if command == "block" && subcommand == "doctor" => {
+            block::doctor_command(root, block_id, &[])
         }
         [command, subcommand, root, block_id, rest @ ..]
             if command == "block" && subcommand == "diagnose" =>
         {
             block::diagnose_command(root, block_id, rest)
         }
+        [command, subcommand, root, block_id, rest @ ..]
+            if command == "block" && subcommand == "doctor" =>
+        {
+            block::doctor_command(root, block_id, rest)
+        }
         [command, subcommand, root, manifest_path]
             if command == "moc" && subcommand == "validate" =>
         {
             moc::validate_command(root, manifest_path)
+        }
+        [command, subcommand, target] if command == "moc" && subcommand == "init" => {
+            moc::init_target_command(target, &[])
+        }
+        [command, subcommand, target, rest @ ..]
+            if command == "moc"
+                && subcommand == "init"
+                && rest.first().is_some_and(|value| value.starts_with("--")) =>
+        {
+            moc::init_target_command(target, rest)
+        }
+        [command, subcommand, mocs_root, moc_id] if command == "moc" && subcommand == "init" => {
+            moc::init_command(mocs_root, moc_id, &[])
+        }
+        [command, subcommand, mocs_root, moc_id, rest @ ..]
+            if command == "moc" && subcommand == "init" =>
+        {
+            moc::init_command(mocs_root, moc_id, rest)
+        }
+        [command, subcommand, path_arg] if command == "moc" && subcommand == "fmt" => {
+            moc::fmt_command(path_arg)
+        }
+        [command, subcommand, root, manifest_path] if command == "moc" && subcommand == "check" => {
+            moc::check_command(root, manifest_path, &[])
+        }
+        [command, subcommand, root, manifest_path, rest @ ..]
+            if command == "moc" && subcommand == "check" =>
+        {
+            moc::check_command(root, manifest_path, rest)
+        }
+        [command, subcommand, action, path_arg]
+            if command == "moc" && subcommand == "bcl" && action == "init" =>
+        {
+            moc_bcl::init_command(path_arg, &[])
+        }
+        [command, subcommand, action, path_arg, rest @ ..]
+            if command == "moc" && subcommand == "bcl" && action == "init" =>
+        {
+            moc_bcl::init_command(path_arg, rest)
+        }
+        [command, subcommand, action, path_arg]
+            if command == "moc" && subcommand == "bcl" && action == "fmt" =>
+        {
+            moc_bcl::fmt_command(path_arg)
+        }
+        [command, subcommand, action, root, source_path]
+            if command == "moc" && subcommand == "bcl" && action == "check" =>
+        {
+            moc_bcl::check_command(root, source_path, &[])
+        }
+        [command, subcommand, action, root, source_path, rest @ ..]
+            if command == "moc" && subcommand == "bcl" && action == "check" =>
+        {
+            moc_bcl::check_command(root, source_path, rest)
         }
         [command, subcommand, action, root, source_path]
             if command == "moc" && subcommand == "bcl" && action == "validate" =>
@@ -60,6 +190,26 @@ pub fn dispatch(args: Vec<String>) -> Result<String, String> {
         {
             moc_bcl::emit_command(root, source_path, rest)
         }
+        [command, subcommand, action, root, source_path]
+            if command == "moc" && subcommand == "bcl" && action == "graph" =>
+        {
+            moc_bcl::graph_command(root, source_path, &[])
+        }
+        [command, subcommand, action, root, source_path, rest @ ..]
+            if command == "moc" && subcommand == "bcl" && action == "graph" =>
+        {
+            moc_bcl::graph_command(root, source_path, rest)
+        }
+        [command, subcommand, action, root, source_path]
+            if command == "moc" && subcommand == "bcl" && action == "explain" =>
+        {
+            moc_bcl::explain_command(root, source_path, &[])
+        }
+        [command, subcommand, action, root, source_path, rest @ ..]
+            if command == "moc" && subcommand == "bcl" && action == "explain" =>
+        {
+            moc_bcl::explain_command(root, source_path, rest)
+        }
         [command, subcommand, root, manifest_path] if command == "moc" && subcommand == "run" => {
             moc::run_command(root, manifest_path, None)
         }
@@ -86,10 +236,20 @@ pub fn dispatch(args: Vec<String>) -> Result<String, String> {
         {
             moc::diagnose_command(root, manifest_path, &[])
         }
+        [command, subcommand, root, manifest_path]
+            if command == "moc" && subcommand == "doctor" =>
+        {
+            moc::doctor_command(root, manifest_path, &[])
+        }
         [command, subcommand, root, manifest_path, rest @ ..]
             if command == "moc" && subcommand == "diagnose" =>
         {
             moc::diagnose_command(root, manifest_path, rest)
+        }
+        [command, subcommand, root, manifest_path, rest @ ..]
+            if command == "moc" && subcommand == "doctor" =>
+        {
+            moc::doctor_command(root, manifest_path, rest)
         }
         _ => Err(USAGE.to_string()),
     }

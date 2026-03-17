@@ -9,6 +9,7 @@
 
 ## 当前进度
 
+- `Unified Platform Reframe`：已完成文档级方向重构，当前主线已明确为“仓库包管理 + Rust 原生运行平台 + BCL 正式语言”；下一阶段应按新蓝图推进实现，而不是继续维持“仅本地 toolchain”心智。
 - `CLI Decoupling`：已按 `docs/prds/BLOCKS_CLI_DECOUPLING_PLAN.md` 完成 Phase 1、Phase 2 与 Phase 3；当前解耦计划中的三阶段目标均已落地。
 - `P0`：已完成。Rust workspace、`blocks-contract`、`blocks-registry`、`blocks-runtime`、最小 CLI 已落地。
 - `P1`：已完成“旧 app 模型”最小闭环，但该闭环已不再是正确目标模型。
@@ -23,21 +24,102 @@
 - `R7`：已完成。`counter-panel-web` 的 `src/preview` HTML 壳层已通过共享 `preview/shell.css` 收口，`moc verify` 的绑定错误已可定位到具体 `flow/step/bind`，前端 `moc` 的 `moc dev` 也已提供本地浏览器预览命令与 URL。
 - `R8`：已完成。新增 `greeting-api-service` 与 `greeting-panel-web` 双 `moc` 全栈 proof slice，前端已通过真实 HTTP fetch 渲染后端返回的数据，且验证边界已明确区分自动化与手工环节。
 - `R9`：已完成。block 可调试与可观测基础能力已收口：契约校验、runtime 诊断事件与工件、CLI diagnose、首批 active block 迁移、仓库级验证路径均已落地。
+- `R10`：已完成。`blocks-contract` MUST 字段强校验、runtime taxonomy/artifact_policy 边界，以及 `blocks-cli` command/app/render 分层已完成首轮回正。
 - `Block Spec Migration`：已完成当前仓库全部 `block.yaml` 向最新 `BLOCKS_SPEC` 标准契约字段集迁移，包含基础标识、能力边界、执行约束、失败契约、验证评估等补齐。
-- `BCL Planning`：已完成 Phase 1、Phase 2 与 Phase 3；`validate -> plan -> emit -> parity` 试点链路已落地，下一步进入 Phase 4 的仓库门禁与回滚集成。
+- `BCL Planning`：已完成 Phase 1、Phase 2、Phase 3 与 Phase 4。当前已将试点 BCL parity gate、warn/error/off 模式与 rollback 开关并入统一 conformance/toolchain 路径。
+- `R12`：已完成 Phase 1、Phase 2、Phase 3 与 Phase 4。当前已交付 authoring、conformance、catalog、doctor/graph/explain、compat/upgrade 与 repo gate 集成的首轮完整工具链。
 
 ## 当前最高优先级的架构问题
 
-- `Blocks CLI` 解耦已完成 Phase 3：catalog manifest 已成为唯一手工注册面，构建期生成胶水也已替代手写分发表；下一轮若继续推进，应聚焦更高层的工具链体验而不是再扩 CLI wiring。
-- 当前 `R9` 已收口；下一轮可考虑把 diagnose 导出/聚合能力进一步产品化（例如更稳定的汇总报告和筛选维度）。
-- `BLOCKS_SPEC` 标准契约字段虽已完成存量 block 迁移补齐，但 `blocks-contract` 对 `owner/scope/non_goals/...` 等 MUST 字段仍未全面机器强校验；建议补一轮 `warn -> error` 门禁实现，避免后续回归。
-- 仓库级检查已补充 `./scripts/repo_check.sh`，会同时覆盖 root workspace tests 与 `counter-panel-web` 的独立 Tauri headless probe；后续应将这条路径固化为更稳定的 CI 基线。
-- 当前前端 `moc` 的浏览器预览已可通过本地静态服务器命令直接访问，但 CLI 仍只是输出辅助命令，尚未内置长驻预览子命令。
-- 当前 `moc verify` 已可定位到具体 `flow/step/bind`，但运行期 block 执行失败仍主要停留在 step 级别。
-- 当前 `counter-panel-web` 已收口共享 HTML 壳层，下一轮可以把同类壳层模式推广到更多前端 `moc`。
-- 新增架构整改计划：[`prds/ARCHITECTURE_DEBT_REDUCTION_PLAN_2026Q1.md`](prds/ARCHITECTURE_DEBT_REDUCTION_PLAN_2026Q1.md) / [`specs/ARCHITECTURE_REFACTOR_SPEC_2026Q1.md`](specs/ARCHITECTURE_REFACTOR_SPEC_2026Q1.md) / [`decisions/001-enforce-contract-runtime-boundary.md`](decisions/001-enforce-contract-runtime-boundary.md)；优先完成 contract 强校验、runtime 边界统一、CLI 分层。
-- BCL 的最小实现闭环已完成到 Phase 3；下一轮应集中在 repo gate、warn/error 升级窗口与回滚开关，而不是继续扩展语言表面。
-- BCL 白皮书与当前 MVP 实现边界仍需持续对齐；`blocks-bcl` 已落地，但后续仍要避免把长期目标误写成当前仓库已实现能力。
+- 当前最高优先级不再是继续横向扩本地 CLI 体验，而是补齐统一蓝图中的三条缺口：包管理、Rust 原生运行平台、BCL 正式语言；参见 [`prds/BLOCKS_BCL_TOOLCHAIN_PLAN.md`](prds/BLOCKS_BCL_TOOLCHAIN_PLAN.md) / [`specs/BLOCKS_BCL_TOOLCHAIN_SPEC.md`](specs/BLOCKS_BCL_TOOLCHAIN_SPEC.md)。
+- `Blocks CLI` 解耦已完成 Phase 3，但 `blocks-runner-catalog` 仍是过渡性本地 Rust 分发表；下一轮应把它降格为兼容引导层，而不是继续把它当最终运行平台。
+- 当前 discovery/dependency 仍停留在本地仓库扫描，缺少 registry、resolver、lockfile 与 package cache；这是统一蓝图里的第一实现缺口。
+- 当前 package 与 runtime 两条主线都已有最小平台边界；下一阶段最高优先级转向让 BCL 成为真正的 package-aware 语言前端，而不是继续停留在 `moc` assist 语义。
+- 当前 BCL 仍主要围绕 `moc.yaml` parity 工作，未成为真正的包感知语言/编译器；这是第三实现缺口。
+- 仓库级检查已通过 [`.github/workflows/repo-check.yml`](../.github/workflows/repo-check.yml) 固化为 CI 基线，并继续复用 `./scripts/repo_check.sh` 作为唯一仓库验证入口。
+- 当前前端 `moc` 的浏览器预览、`moc verify` 错误定位、compat/upgrade/repo gate 等能力都已具备价值，但它们现在应被视为迁移期辅助能力，而不是长期终局。
+- 白皮书、PRD、Spec 的长期叙事已在本轮对齐；下一阶段必须避免再次把“迁移桥梁”写成“最终架构”。
+
+## 统一平台蓝图（按 Phase 跟踪）
+
+关联文档：
+
+- 计划：[`prds/BLOCKS_BCL_TOOLCHAIN_PLAN.md`](prds/BLOCKS_BCL_TOOLCHAIN_PLAN.md)
+- 规格：[`specs/BLOCKS_BCL_TOOLCHAIN_SPEC.md`](specs/BLOCKS_BCL_TOOLCHAIN_SPEC.md)
+- 白皮书：[`whitepapers/BLOCKS_LANGUAGE_WHITEPAPER.md`](whitepapers/BLOCKS_LANGUAGE_WHITEPAPER.md)
+
+### Phase 1（愿景冻结与迁移约束，已完成）
+
+- [x] 统一 README、白皮书、PRD、Spec、TODO 的方向表述。
+- [x] 明确长期目标为“包管理 + Rust 原生运行平台 + BCL 语言”。
+- [x] 明确 `moc.yaml` / 本地 catalog / runner catalog 属于迁移桥梁，而不是终局。
+
+Phase 1 验收：
+
+- [x] 活跃文档不再同时宣称两个互相冲突的未来。
+- [x] 新主线可以直接指导后续实现优先级。
+
+### Phase 2（包模型与注册表基线，已完成）
+
+- [x] 按已审批测试计划完成 Phase 2 首批 RED 测试落地（manifest/lockfile/provider/cli/migration bridge），当前用例处于预期失败状态并等待 GREEN 实现。
+- [x] 按补充测试计划完成 Phase 2 第二轮 RED 测试落地（provider precedence/conflict、concrete lock versions、non-0.1.0 fetch、strict/compat unknown-key、fetch output mode），用于约束 Reviewer 指出的高风险缺口。
+- [x] 按最终聚焦测试计划完成 Phase 2 第三轮 RED 测试落地（resolver truthfulness、no synthetic candidates、real-release-only conflict、no req-derived lock versions、去除 sentinel 路径依赖）。
+- [x] 按 shim-removal 最终阻断清单完成 Phase 2 第四轮 RED 测试落地（`dep.sample` 默认不合成、missing->unsatisfied、shim-only 不写 lock、fallback/conflict/lock 仅基于真实 release、compat shim default-off/opt-in 约束）。
+- [x] 落地 `blocks-package` crate，收口 package id、version、source、lockfile 与 bridge load 模型。
+- [x] 为 `blocks-registry` 增加 package provider 解析基线，并在 CLI 中接入 workspace/file/remote seam 标签。
+- [x] 为 `block`、`moc`、BCL package 定义统一 `package.yaml` 解析规则与 authority matrix。
+- [x] 为 CLI 增加 `pkg init/resolve/fetch/publish` 命令面与稳定 `--json` 合约。
+- [x] 补齐第二轮 GREEN 缺口：provider fallback/conflict、concrete lock versions、strict/compat unknown-key、non-json fetch 输出。
+- [x] 去除 resolver 中的 synthetic candidate/path sentinel 语义，确保 provider/fallback/conflict/lockfile 仅基于真实 release。
+- [x] 将 `dep.sample` compat shim 改为 default-off，并收敛到显式 `--compat`，不再保留默认路径白名单。
+- [x] 为 package resolution 增加最小 conformance fixtures 与第三方仓库验证样例，并公开 `conformance run package` 作为第三方 adopter 的最小验证入口。
+
+Phase 2 验收：
+
+- [x] 同一 package graph 可被确定性 resolve 并生成 lockfile。
+- [x] file-backed registry 工作流可独立于当前 workspace layout 运行。
+- [x] 第三方仓库可消费至少一个外部 package。
+
+### Phase 3（Rust 原生运行平台，已完成）
+
+- [x] 抽象 runtime host trait、execution envelope、artifact/diagnostic contract。
+- [x] 将 `blocks-runtime` 从单 block 胶水提升为平台契约层。
+- [x] 将 `blocks-runner-catalog` 重新定位为兼容启动器，不再承载最终平台心智。
+- [x] 提供至少两个 Rust host profile 证明兼容性，例如同步 CLI host 与 `tokio` service host。
+- [x] 为 runtime host 增加 conformance suite 与 capability report。
+
+Phase 3 验收：
+
+- [x] 同一 block/runtime contract 能在两种 Rust host profile 上运行。
+- [x] 诊断与工件策略由平台契约统一，而不是散落在具体 runner 中。
+- [x] CLI 可报告 host capability 与不兼容原因。
+
+### Phase 4（BCL 语言升级，进行中）
+
+- [x] 将 `blocks-bcl` 的首轮 CLI 入口升级为 package-aware language frontend baseline，可从 `bcl` package root 解析 block package 依赖并执行 check/build。
+- [x] 设计 top-level `blocks bcl ...` 命名空间，并将 `moc bcl` 保留为兼容别名。
+- [x] 在 CLI/build 层引入 package-aware versioned dependency 解析与显式 lowering target（`runtime-compat|moc-compat`）baseline。
+- [ ] 设计 richer control-flow/recovery model，但保持分阶段可验证，不做一次性过度扩张。
+- [ ] 将 `moc.yaml` emission 降格为 migration/compat output，而不是唯一目标产物。
+
+Phase 4 验收：
+
+- [x] 新 BCL source 可作为平台原生源码被检查、格式化、构图、解释和构建。
+- [x] 至少一个非平凡样例通过 package resolution + compiler lowering + runtime execution 路径闭环。
+- [ ] 旧 `moc.yaml` parity 路径仍可作为迁移桥梁保留。
+
+### Phase 5（外部采用与一致性门禁，待开始）
+
+- [ ] 为第三方仓库输出 package/runtime/bcl conformance 套件。
+- [ ] 为 CI 提供 publish/install/upgrade/doctor 基线工作流。
+- [ ] 为兼容性破坏定义 semver、schema、runtime capability 的联合门禁。
+- [ ] 将现有 repo check 扩展为真正的平台级验证入口。
+
+Phase 5 验收：
+
+- [ ] 第三方仓库不依赖本仓库布局也可完成 adopt -> resolve -> build -> run -> check。
+- [ ] conformance 报告能够覆盖 package、compiler、runtime 三个层次。
+- [ ] 平台升级具备可审计的 compat/upgrade 输出。
 
 ## Blocks CLI 解耦计划（按 Phase 跟踪）
 
@@ -251,10 +333,10 @@ R9 验收：
 - [x] 诊断工件具备基础脱敏且可复现至少一条 benchmark 失败样例。
 - [x] 文档明确自动化覆盖范围与手工诊断边界，且对应命令在仓库可执行。
 
-## R10（架构回正，进行中）
+## R10（架构回正，已完成）
 
-- [ ] 为 `blocks-contract` 补齐 `BLOCKS_SPEC` 关键 `MUST` 字段机器强校验（`owner/scope/non_goals/inputs/outputs` 等），并收口迁移窗后的 error 门禁。
-- [ ] 为 runtime 补齐 taxonomy 对齐与 `artifact_policy` 策略执行，避免 `moc run`/`moc verify` 观测边界分裂。
+- [x] 为 `blocks-contract` 补齐 `BLOCKS_SPEC` 关键 `MUST` 字段机器强校验（`owner/scope/non_goals/inputs/outputs` 等），并收口迁移窗后的 error 门禁。
+- [x] 为 runtime 补齐 taxonomy 对齐与 `artifact_policy` 策略执行，避免 `moc run`/`moc verify` 观测边界分裂。
 - [x] 将 `blocks-cli` 从单文件入口拆分为命令解析层、应用编排层、输出渲染层，保持现有命令行为兼容。
 
 ### R10 Phase 1（统一执行与观测边界，最高优先）
@@ -354,15 +436,76 @@ Phase 3 验收：
 
 ### R11 Phase 4（迁移门禁与仓库集成）
 
-- [ ] 在 `./scripts/repo_check.sh` 增加 BCL opt-in 检查（先 warn 后 error）。
-- [ ] 明确 warn -> error 升级时间窗与触发条件。
-- [ ] 文档化回滚开关（禁用 BCL gate 即回退到纯 `moc.yaml` 流程）。
-- [ ] 增加仓库级回归，确保 BCL gate 开关不影响既有命令兼容。
+- [x] 在 `./scripts/repo_check.sh` 增加 BCL opt-in 检查（先 warn 后 error）。
+- [x] 明确 warn -> error 升级时间窗与触发条件。
+- [x] 文档化回滚开关（禁用 BCL gate 即回退到纯 `moc.yaml` 流程）。
+- [x] 增加仓库级回归，确保 BCL gate 开关不影响既有命令兼容。
 
 Phase 4 验收：
 
-- [ ] BCL trial `moc` 全部通过仓库级检查。
-- [ ] 关闭 BCL gate 后仓库行为与基线一致。
+- [x] BCL trial `moc` 全部通过仓库级检查。
+- [x] 关闭 BCL gate 后仓库行为与基线一致。
+
+## R12（Blocks/BCL 工具链建立：无 IDE 的首轮完整工具链）
+
+关联文档：
+
+- 计划：[`prds/BLOCKS_BCL_TOOLCHAIN_PLAN.md`](prds/BLOCKS_BCL_TOOLCHAIN_PLAN.md)
+- 规格：[`specs/BLOCKS_BCL_TOOLCHAIN_SPEC.md`](specs/BLOCKS_BCL_TOOLCHAIN_SPEC.md)
+
+R12 总边界：
+
+- 本仓库负责 `blocks`/BCL 的标准、authoring/validation/conformance 工具链与参考资产。
+- 本仓库不负责产品需求管理、发布编排、生产级 block 库或 deploy 体系。
+- 首轮工具链显式不含 IDE/LSP/editor 支持；优先交付 CLI、conformance、catalog、diagnostics、migration。
+
+### R12 Phase 1（边界冻结与文档对齐，已完成）
+
+- [x] 新增工具链 PRD，明确仓库定位、目标用户、分阶段路线与非目标。
+- [x] 新增工具链规格，定义命令族、数据契约、conformance/catalog/migration 技术边界。
+- [x] 在 `README.md`、`docs/prds/README.md`、`docs/TODO.md` 中接入工具链主线文档。
+- [x] 明确首波不支持 IDE/LSP/editor 集成。
+
+Phase 1 验收：
+
+- [x] 工具链主线已有单独 PRD/Spec，而不是散落在 BCL 文档中。
+- [x] 仓库边界与非目标已可被外部贡献者明确理解。
+
+### R12 Phase 2（authoring baseline）
+
+- [x] 为 `block` / `moc` / BCL 设计并实现统一 `init` scaffold 路径。
+- [x] 增加 `fmt` 路径，收口 `block.yaml`、`moc.yaml`、`moc.bcl` 的规范化输出。
+- [x] 增加统一 `check` 路径，对已有 validator 做稳定命令层封装。
+- [x] 将 create-block / build-moc / BCL authoring 流程提升为仓库公开 guide，而不是只停留在内部 skill。
+
+Phase 2 验收：
+
+- [x] 新贡献者可不依赖内部 skill，按公开文档完成 scaffold -> fmt -> check。
+- [x] `block`、`moc`、BCL 三类目标均具备一致的 authoring baseline。
+
+### R12 Phase 3（evidence execution 与 conformance）
+
+- [x] 为 block-local `tests/examples/evaluators/fixtures` 提供可执行命令入口。
+- [x] 增加 `blocks conformance ...` 路径，为第三方仓库提供确定性合规验证。
+- [x] 将 BCL Phase 4 gate 收口到统一仓库工具链，而不是孤立脚本分支。
+- [x] 为外部 adopters 文档化最小接入路径和回滚方式。
+
+Phase 3 验收：
+
+- [x] 第三方 block/moc/BCL 实现者可以用单一入口命令拿到合规报告。
+- [x] BCL 仓库门禁已并入整体工具链路线，且可回滚。
+
+### R12 Phase 4（catalog / diagnostics / migration）
+
+- [x] 增加 catalog export/search 路径，支持 AI 友好的能力发现。
+- [x] 增加 `doctor` / `graph` / `explain` 路径，提升 moc/BCL 故障修复体验。
+- [x] 增加 `compat` / `upgrade` 路径，支撑规范迁移和描述兼容分析。
+- [x] 将工具链入口固化到 CI/脚本中，形成可复用集成面。
+
+Phase 4 验收：
+
+- [x] 不依赖 IDE 支持，也能完成发现、装配、诊断、迁移的主要开发回路。
+- [x] 工具链具备稳定的 catalog / diagnostics / migration 自动化边界。
 
 ## P0
 
@@ -417,3 +560,17 @@ P3 验收：
 - 2026-03-05: Completed R10 Phase 3 implementation: `blocks-cli` layered split (`commands/app/render`), command behavior test migration to integration boundaries, and stable diagnose JSON contract regression coverage.
 - 2026-03-05: Added R11 BCL establishment plan (moc-assist boundary), with new PRD/Spec/ADR and phased TODO gates for validate/plan/emit/parity rollout.
 - 2026-03-09: Completed R11 Phase 3 implementation: added `moc bcl plan|emit`, structural parity checks, trial `moc.bcl` files for `echo-pipeline` and `greeting-panel-web`, and executable README workflow guidance.
+- 2026-03-13: Added R12 toolchain planning docs (`BLOCKS_BCL_TOOLCHAIN_PLAN` / `BLOCKS_BCL_TOOLCHAIN_SPEC`) and promoted the repository’s next mainline to a no-IDE-first blocks/BCL toolchain roadmap.
+- 2026-03-13: Completed R12 Phase 2 implementation: added `block` / `moc` / `moc bcl` authoring baseline commands (`init`, `fmt`, `check`), scaffold templates, public guide docs, and CLI integration coverage.
+- 2026-03-13: Completed R11 Phase 4 implementation: routed BCL parity through `conformance run bcl`, added `BLOCKS_BCL_GATE_MODE=off|warn|error`, integrated repo gate coverage, and documented rollback semantics.
+- 2026-03-13: Completed R12 Phase 3 implementation: added executable `block test` / `block eval`, `conformance run` for block/moc/BCL, reference evidence assets for `demo.echo`, and a public adopter conformance guide.
+- 2026-03-13: Completed R12 Phase 4 implementation: added catalog export/search, block+moc doctor, BCL graph/explain, compat/upgrade, Phase 4 guide docs, and repository-gate integration for the no-IDE toolchain.
+- 2026-03-13: Completed R10 overall by executing runtime `artifact_policy` on failure diagnostics, adding coverage for suppressed/minimum artifacts, and reconciling the remaining architecture-debt TODO state.
+- 2026-03-13: Added `.github/workflows/repo-check.yml` and CI-specific frontend-host dependency prefetching so the repository-owned `repo_check.sh` path is now the actual GitHub Actions baseline.
+- 2026-03-13: Added `docs/guide/blocks_bcl_toolchain_handbook.md` as the new single-guide entry point for the complete `block` / `moc` / BCL CLI toolchain.
+- 2026-03-13: Aligned `moc init` DX with the new handbook by accepting both `moc init <mocs-root> <moc-id>` and `moc init <moc-root>` forms, adding regression coverage for the single-path variant.
+- 2026-03-17: Completed the remaining Phase 2 package baseline gap by adding `conformance run package`, third-party consumer/file-registry coverage, and public package-resolution conformance guidance.
+- 2026-03-17: Completed Phase 3 runtime-host baseline by adding `RuntimeHost`/`ExecutionEnvelope`, `sync-cli` + `tokio-service` profiles, `blocks runtime check`, and `conformance run runtime`.
+- 2026-03-17: Hardened Phase 3 regression coverage with explicit host-selection, human-output, explicit `--input`, missing-fixture failure, and invalid-host CLI tests for runtime check/conformance.
+- 2026-03-17: Started Phase 4 implementation by adding the top-level `blocks bcl ...` namespace, package-aware BCL build/check over resolved block packages, explicit build lowering targets, and regression coverage for both legacy and package-root entrypoints.
+- 2026-03-17: Extended Phase 4 into the public conformance layer by adding package-root `conformance run bcl` support with provider-aware check/graph/build coverage while preserving the legacy parity-gate path.

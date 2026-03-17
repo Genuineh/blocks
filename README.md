@@ -2,6 +2,8 @@
 
 `blocks` is a software building-block model designed for AI-driven development. Its goal is not to replace existing programming languages, frameworks, or libraries, but to add a layer of composable, verifiable capabilities on top of them so AI can assemble, validate, and ship higher-quality results with more consistency.
 
+The active repository direction is now broader than a local validation toolchain: this repository is intended to become the `blocks` package, runtime, and language platform. That means package discovery and dependency resolution, a Rust-native runtime platform boundary, and `BCL` as a first-class language are now part of the planned architecture.
+
 In modern software production, AI struggles to deliver consistently high-quality output not only because large language models are probabilistic, but also because much of the existing toolchain was not designed around how AI understands, invokes, and validates systems. Those tools work well for human engineers, but for AI they often impose high comprehension cost, unclear invocation paths, fuzzy behavioral boundaries, and expensive verification loops.
 
 The core claim of `blocks` is simple: if you want AI to produce high-quality products, every minimal component it uses must first be stable, verifiable, and evaluable. High-quality systems only emerge from high-quality building blocks.
@@ -88,7 +90,16 @@ The goal of `blocks` is to add a layer of engineering constraints and verifiable
 - [docs/prds/ARCHITECTURE_DEBT_REDUCTION_PLAN_2026Q1.md](./docs/prds/ARCHITECTURE_DEBT_REDUCTION_PLAN_2026Q1.md): current 1-2 week architecture debt reduction plan focused on `contract`, `runtime`, and `cli`.
 - [docs/prds/R10_PHASE1_MINIMAL_RUNTIME_BOUNDARY_PLAN.md](./docs/prds/R10_PHASE1_MINIMAL_RUNTIME_BOUNDARY_PLAN.md): minimal R10 Phase 1 plan focused on unifying the run/verify runtime boundary, moc-level diagnostic ownership, and taxonomy mapping.
 - [docs/prds/BCL_MOC_ASSIST_PLAN.md](./docs/prds/BCL_MOC_ASSIST_PLAN.md): BCL establishment plan, defining BCL strictly as a `moc` authoring and validation assist layer rather than a runtime delivery boundary.
+- [docs/prds/BLOCKS_BCL_TOOLCHAIN_PLAN.md](./docs/prds/BLOCKS_BCL_TOOLCHAIN_PLAN.md): active unified platform plan covering package management, Rust-native runtime hosting, and BCL promotion from MVP assist syntax to first-class language.
+- [docs/prds/BLOCKS_PHASE2_PACKAGE_REGISTRY_PLAN.md](./docs/prds/BLOCKS_PHASE2_PACKAGE_REGISTRY_PLAN.md): the concrete Phase 2 execution plan for package manifests, lockfiles, provider precedence, migration bridge, and the first `blocks pkg` baseline.
 - [docs/guide/README.md](./docs/guide/README.md): entry point for usage guides and contribution workflows.
+- [docs/guide/blocks_bcl_toolchain_handbook.md](./docs/guide/blocks_bcl_toolchain_handbook.md): the recommended single-guide entry point for using the full `block` / `moc` / BCL toolchain end to end.
+- [docs/guide/block_authoring_baseline.md](./docs/guide/block_authoring_baseline.md): public authoring-baseline workflow for scaffolding, formatting, and checking reusable `block`s.
+- [docs/guide/build_moc_baseline.md](./docs/guide/build_moc_baseline.md): public authoring-baseline workflow for scaffolding, formatting, and checking `moc`s.
+- [docs/guide/bcl_authoring_baseline.md](./docs/guide/bcl_authoring_baseline.md): public authoring-baseline workflow for scaffolding, formatting, and checking `moc.bcl`.
+- [docs/guide/conformance_workflow.md](./docs/guide/conformance_workflow.md): public conformance workflow for executable block evidence, `conformance run`, and BCL gate rollback.
+- [docs/guide/discovery_diagnostics_migration_workflow.md](./docs/guide/discovery_diagnostics_migration_workflow.md): public Phase 4 workflow for catalog discovery, doctor/graph/explain, compat, and upgrade.
+- [docs/guide/package_registry_baseline_workflow.md](./docs/guide/package_registry_baseline_workflow.md): public Phase 2 workflow for package scaffolding, resolution, file-registry publish/fetch, and migration-bridge usage.
 - [docs/guide/bcl_mvp_workflow.md](./docs/guide/bcl_mvp_workflow.md): practical guide for the current BCL MVP workflow, including validate/plan/emit/parity usage and authority boundaries.
 - [docs/decisions/README.md](./docs/decisions/README.md): index of architecture decision records.
 - [docs/decisions/001-enforce-contract-runtime-boundary.md](./docs/decisions/001-enforce-contract-runtime-boundary.md): decision record for strong contract enforcement, unified runtime boundaries, and CLI layering.
@@ -104,6 +115,9 @@ The goal of `blocks` is to add a layer of engineering constraints and verifiable
 - [docs/specs/ARCHITECTURE_REFACTOR_SPEC_2026Q1.md](./docs/specs/ARCHITECTURE_REFACTOR_SPEC_2026Q1.md): technical specification for `contract`/`runtime`/`cli` architecture refactoring.
 - [docs/specs/R10_PHASE1_RUNTIME_BOUNDARY_SPEC.md](./docs/specs/R10_PHASE1_RUNTIME_BOUNDARY_SPEC.md): function-level R10 Phase 1 spec covering shared run/verify execution boundaries, `moc diagnose` corrections, and `error_id` mapping.
 - [docs/specs/BCL_MOC_MVP_SPEC.md](./docs/specs/BCL_MOC_MVP_SPEC.md): minimal BCL technical specification covering grammar, semantic validation, CLI contract, and phased rollout gates.
+- [docs/specs/BLOCKS_BCL_TOOLCHAIN_SPEC.md](./docs/specs/BLOCKS_BCL_TOOLCHAIN_SPEC.md): technical specification for the package/runtime/language platform direction, including resolver/lockfile, runtime host contracts, compiler flows, and migration aliases.
+- [docs/specs/BLOCKS_PACKAGE_MODEL_SPEC.md](./docs/specs/BLOCKS_PACKAGE_MODEL_SPEC.md): Phase 2 normative package manifest, lockfile, and authority rules.
+- [docs/specs/BLOCKS_REGISTRY_BASELINE_SPEC.md](./docs/specs/BLOCKS_REGISTRY_BASELINE_SPEC.md): Phase 2 provider precedence, file-registry layout, and fetch error taxonomy.
 - [docs/whitepapers/BLOCKS_LANGUAGE_WHITEPAPER.md](./docs/whitepapers/BLOCKS_LANGUAGE_WHITEPAPER.md): BCL whitepaper defining the language model, basic syntax, compiler shape, and output model.
 - [mocs/echo-pipeline/README.md](./mocs/echo-pipeline/README.md): current minimal `moc` example whose backend directly depends on the `demo.echo` Rust crate.
 - [mocs/hello-pipeline/README.md](./mocs/hello-pipeline/README.md): current minimal `moc` example whose backend directly depends on file-oriented Rust block crates.
@@ -119,13 +133,13 @@ The goal of `blocks` is to add a layer of engineering constraints and verifiable
 
 ## BCL Trial Workflow
 
-The BCL MVP core loop is now available for selected trial mocs while keeping `moc.yaml` as runtime authority. Repository gate rollout remains a Phase 4 follow-up.
+The BCL MVP core loop is now available for selected trial mocs while keeping `moc.yaml` as runtime authority. Repository gate rollout, rollback, and the surrounding Phase 4 toolchain surfaces are now available through the public CLI.
 
 Example using `echo-pipeline`:
 
 ```bash
 mkdir -p .tmp
-cargo run -p blocks-cli -- moc bcl validate blocks mocs/echo-pipeline/moc.bcl --json
+cargo run -p blocks-cli -- bcl check mocs/echo-pipeline --json
 cargo run -p blocks-cli -- moc bcl plan blocks mocs/echo-pipeline/moc.bcl --json
 cargo run -p blocks-cli -- moc bcl emit blocks mocs/echo-pipeline/moc.bcl --out .tmp/echo-pipeline.generated.yaml --check-against mocs/echo-pipeline/moc.yaml
 ```
