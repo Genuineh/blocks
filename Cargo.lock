@@ -89,11 +89,15 @@ name = "blocks-cli"
 version = "0.1.0"
 dependencies = [
  "blocks-bcl",
+ "blocks-contract",
  "blocks-moc",
+ "blocks-package",
  "blocks-registry",
  "blocks-runner-catalog",
  "blocks-runtime",
+ "serde",
  "serde_json",
+ "serde_yaml",
  "tempfile",
 ]
 
@@ -117,6 +121,16 @@ dependencies = [
  "serde_json",
  "serde_yaml",
  "tempfile",
+ "thiserror",
+]
+
+[[package]]
+name = "blocks-package"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "serde_yaml",
  "thiserror",
 ]
 
@@ -155,6 +169,7 @@ dependencies = [
  "serde_json",
  "tempfile",
  "thiserror",
+ "tokio",
 ]
 
 [[package]]
@@ -323,6 +338,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "42f5e15c9953c5e4ccceeb2e7382a716482c34515315f7b03532b8b4e8393d2d"
 
 [[package]]
+name = "pin-project-lite"
+version = "0.2.17"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a89322df9ebe1c1578d689c92318e070967d1042b512afbe49518723f4e6d5cd"
+
+[[package]]
 name = "prettyplease"
 version = "0.2.37"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -479,6 +500,15 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "tokio"
+version = "1.50.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "27ad5e34374e03cfffefc301becb44e9dc3c17584f414349ebe29ed26661822d"
+dependencies = [
+ "pin-project-lite",
 ]
 
 [[package]]

@@ -19,6 +19,13 @@ pub struct Registry {
     blocks: BTreeMap<String, RegisteredBlock>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PackageProvider {
+    Workspace(PathBuf),
+    File(PathBuf),
+    Remote(String),
+}
+
 #[derive(Debug, Error)]
 pub enum RegistryError {
     #[error("blocks root does not exist: {0}")]
@@ -47,6 +54,8 @@ pub enum RegistryError {
     MissingImplementationEntry { block_id: String, path: PathBuf },
     #[error("duplicate block id: {0}")]
     DuplicateBlockId(String),
+    #[error("invalid package provider: {0}")]
+    InvalidPackageProvider(String),
 }
 
 impl Registry {
@@ -149,5 +158,28 @@ impl Registry {
                         .contains(&needle)
             })
             .collect()
+    }
+}
+
+impl PackageProvider {
+    pub fn parse(value: &str) -> Result<Self, RegistryError> {
+        if let Some(path) = value.strip_prefix("workspace:") {
+            return Ok(Self::Workspace(PathBuf::from(path)));
+        }
+        if let Some(path) = value.strip_prefix("file:") {
+            return Ok(Self::File(PathBuf::from(path)));
+        }
+        if let Some(endpoint) = value.strip_prefix("remote:") {
+            return Ok(Self::Remote(endpoint.to_string()));
+        }
+        Err(RegistryError::InvalidPackageProvider(value.to_string()))
+    }
+
+    pub fn label(&self) -> String {
+        match self {
+            Self::Workspace(path) => format!("workspace:{}", path.display()),
+            Self::File(path) => format!("file:{}", path.display()),
+            Self::Remote(endpoint) => format!("remote:{endpoint}"),
+        }
     }
 }

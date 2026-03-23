@@ -1,0 +1,9 @@
+[package]
+name = "moc_hello_service"
+edition = "2024"
+version = "0.1.0"
+license = "MIT"
+
+[[bin]]
+name = "moc_hello_service"
+path = "src/main.rs"

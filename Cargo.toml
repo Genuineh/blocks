@@ -2,6 +2,7 @@
 members = [
   "crates/blocks-bcl",
   "crates/blocks-contract",
+  "crates/blocks-package",
   "crates/blocks-registry",
   "crates/blocks-runtime",
   "crates/blocks-runner-catalog",
@@ -33,3 +34,4 @@ serde_json = "1.0"
 serde_yaml = "0.9"
 tempfile = "3.14"
 thiserror = "2.0"
+tokio = { version = "1.47", features = ["rt"] }

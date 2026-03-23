@@ -2,8 +2,9 @@
 
 > 状态说明（2026-03-09）：
 > 本文描述的是 `BCL` 的目标形态与长期设计方向，不等同于“当前仓库已经完整实现”的状态。
-> 当前仓库对 `BCL` 的正式落地边界，以 `docs/prds/BCL_MOC_ASSIST_PLAN.md` 与 `docs/specs/BCL_MOC_MVP_SPEC.md` 为准。
-> 在当前 MVP 中，`BCL` 被严格约束为 `moc` 描述与校验的辅助层，`moc.yaml` 仍然是运行权威描述。
+> 自 2026-03-16 起，仓库的主动路线图已改为与本文长期方向对齐：`blocks` 将同时建设包管理、Rust 原生运行平台与 `BCL` 语言/编译器。
+> 当前工作树中已落地的实现边界，仍以 `docs/prds/BCL_MOC_ASSIST_PLAN.md`、`docs/specs/BCL_MOC_MVP_SPEC.md`、`docs/prds/BLOCKS_BCL_TOOLCHAIN_PLAN.md` 与 `docs/specs/BLOCKS_BCL_TOOLCHAIN_SPEC.md` 为准。
+> 在迁移阶段，`moc.yaml` 仍然是现行运行权威描述，但它被视为过渡桥梁，而不是长期唯一中心。
 
 ## 摘要
 

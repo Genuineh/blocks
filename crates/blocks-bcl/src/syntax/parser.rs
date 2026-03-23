@@ -4,8 +4,9 @@ use std::str::Chars;
 use crate::diagnostics::{RuleResult, SpanRange, ValidateReport};
 
 use super::ast::{
-    BclDocument, BindDecl, DependencyDecl, FlowDecl, ProtocolDecl, SchemaFieldDecl, SpannedIdent,
-    SpannedString, StepDecl, TypeSpec, UsesBlock, VerificationDecl,
+    BclDocument, BindDecl, DependencyDecl, FlowDecl, GuardClause, ProtocolDecl,
+    RecoverClause, SchemaFieldDecl, SpannedIdent, SpannedString, StepDecl, TypeSpec,
+    UsesBlock, VerificationDecl,
 };
 
 #[derive(Debug, Clone)]
@@ -117,7 +118,7 @@ impl<'a> Parser<'a> {
                 "accept" => {
                     document.acceptance.push(self.parse_string_stmt()?);
                 }
-                "guard" | "recover" | "product" => {
+                "product" => {
                     return Err(self.unsupported_error(
                         keyword.span,
                         format!("unsupported BCL construct in MVP: {name}"),
@@ -365,6 +366,20 @@ impl<'a> Parser<'a> {
         Ok(verification)
     }
 
+    fn parse_guard_clause(&mut self) -> Result<GuardClause, ValidateReport> {
+        let start = self.expect_keyword("guard")?;
+        let condition_start = self.expect_string_token()?;
+        let condition = match condition_start.kind {
+            TokenKind::String(value) => value,
+            _ => unreachable!(),
+        };
+        let end = self.expect_simple(TokenKind::Semicolon)?;
+        Ok(GuardClause {
+            condition,
+            span: SpanRange::new(start.line, start.column, end.end_line, end.end_column),
+        })
+    }
+
     fn parse_flow(&mut self, is_entry: bool) -> Result<FlowDecl, ValidateReport> {
         let id = self.expect_ident_token()?;
         let flow_id = match &id.kind {
@@ -375,6 +390,8 @@ impl<'a> Parser<'a> {
         self.expect_simple(TokenKind::LBrace)?;
         let mut steps = Vec::new();
         let mut binds = Vec::new();
+        let mut recover = None;
+
         while !self.check_simple(TokenKind::RBrace) {
             if self.peek_ident("step") {
                 self.expect_keyword("step")?;
@@ -385,10 +402,104 @@ impl<'a> Parser<'a> {
                 };
                 self.expect_simple(TokenKind::Equals)?;
                 let block = self.parse_dotted_ident()?;
+                let mut guard = None;
+                if self.peek_ident("guard") {
+                    guard = Some(self.parse_guard_clause()?);
+                }
                 let end = self.expect_simple(TokenKind::Semicolon)?;
                 steps.push(StepDecl {
                     id: step_id,
                     block: block.value,
+                    guard,
+                    span: SpanRange::new(
+                        step_start.span.line,
+                        step_start.span.column,
+                        end.end_line,
+                        end.end_column,
+                    ),
+                });
+                continue;
+            }
+
+            if self.peek_ident("bind") {
+                let bind_token = self.expect_keyword("bind")?;
+                let from = self.parse_dotted_ident()?;
+                self.expect_simple(TokenKind::Arrow)?;
+                let to = self.parse_dotted_ident()?;
+                let end = self.expect_simple(TokenKind::Semicolon)?;
+                binds.push(BindDecl {
+                    from: from.value,
+                    to: to.value,
+                    span: SpanRange::new(
+                        bind_token.line,
+                        bind_token.column,
+                        end.end_line,
+                        end.end_column,
+                    ),
+                });
+                continue;
+            }
+
+            if self.peek_ident("recover") {
+                if recover.is_some() {
+                    let token = self.expect_ident_token()?;
+                    return Err(self.syntax_error(
+                        token.span,
+                        "duplicate recover clause in flow".to_string(),
+                        Some("only one recover clause is allowed per flow".to_string()),
+                    ));
+                }
+                recover = Some(self.parse_recover_clause()?);
+                continue;
+            }
+
+            let token = self.expect_ident_token()?;
+            let name = match &token.kind {
+                TokenKind::Ident(value) => value.clone(),
+                _ => unreachable!(),
+            };
+            return Err(self.syntax_error(
+                token.span,
+                format!("unknown flow item: {name}"),
+                Some("expected `step`, `bind`, or `recover`".to_string()),
+            ));
+        }
+        let end = self.expect_simple(TokenKind::RBrace)?;
+        Ok(FlowDecl {
+            id: flow_id,
+            span: SpanRange::new(start.line, start.column, end.end_line, end.end_column),
+            is_entry,
+            steps,
+            binds,
+            recover,
+        })
+    }
+
+    fn parse_recover_clause(&mut self) -> Result<RecoverClause, ValidateReport> {
+        let start = self.expect_keyword("recover")?;
+        self.expect_simple(TokenKind::LBrace)?;
+        let mut steps = Vec::new();
+        let mut binds = Vec::new();
+
+        while !self.check_simple(TokenKind::RBrace) {
+            if self.peek_ident("step") {
+                self.expect_keyword("step")?;
+                let step_start = self.expect_ident_token()?;
+                let step_id = match &step_start.kind {
+                    TokenKind::Ident(value) => value.clone(),
+                    _ => unreachable!(),
+                };
+                self.expect_simple(TokenKind::Equals)?;
+                let block = self.parse_dotted_ident()?;
+                let mut guard = None;
+                if self.peek_ident("guard") {
+                    guard = Some(self.parse_guard_clause()?);
+                }
+                let end = self.expect_simple(TokenKind::Semicolon)?;
+                steps.push(StepDecl {
+                    id: step_id,
+                    block: block.value,
+                    guard,
                     span: SpanRange::new(
                         step_start.span.line,
                         step_start.span.column,
@@ -425,17 +536,16 @@ impl<'a> Parser<'a> {
             };
             return Err(self.syntax_error(
                 token.span,
-                format!("unknown flow item: {name}"),
+                format!("unknown recover item: {name}"),
                 Some("expected `step` or `bind`".to_string()),
             ));
         }
+
         let end = self.expect_simple(TokenKind::RBrace)?;
-        Ok(FlowDecl {
-            id: flow_id,
-            span: SpanRange::new(start.line, start.column, end.end_line, end.end_column),
-            is_entry,
+        Ok(RecoverClause {
             steps,
             binds,
+            span: SpanRange::new(start.line, start.column, end.end_line, end.end_column),
         })
     }
 

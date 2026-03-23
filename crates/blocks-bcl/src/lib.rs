@@ -10,6 +10,7 @@ use blocks_moc::MocComposer;
 use blocks_registry::Registry;
 
 pub use diagnostics::{RuleResult, SpanRange, ValidateReport};
+pub use emit::canonical_bcl;
 use ir::BclMocIr;
 pub use ir::PlanReport;
 pub use sema::ValidatedBcl;
@@ -112,6 +113,30 @@ pub fn plan_str(
 pub fn emit_file(blocks_root: &str, source_path: &str) -> Result<EmitResult, ValidateReport> {
     let source = read_source_file(source_path)?;
     emit_str(blocks_root, source_path, &source)
+}
+
+pub fn format_file(source_path: &str) -> Result<String, ValidateReport> {
+    let source = read_source_file(source_path)?;
+    format_str(source_path, &source)
+}
+
+pub fn format_str(source_path: &str, source: &str) -> Result<String, ValidateReport> {
+    let ir = load_ir(source_path, source)?;
+    emit::canonical_bcl(&ir.manifest).map_err(|message| {
+        ValidateReport::error(
+            source_path,
+            RuleResult {
+                error_id: "bcl.format.render_failed".to_string(),
+                rule_id: "BCL-FMT-001".to_string(),
+                severity: "error".to_string(),
+                message,
+                hint: Some(
+                    "ensure the BCL source can be lowered into a canonical manifest".to_string(),
+                ),
+                span: SpanRange::new(1, 1, 1, 1),
+            },
+        )
+    })
 }
 
 pub fn emit_str(

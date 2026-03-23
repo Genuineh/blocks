@@ -14,15 +14,15 @@ const ACTIVE_REQUIRED_FIELDS_ERROR_DATE_UTC: (i32, u8, u8) = (2026, 4, 16);
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BlockContract {
     pub id: String,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub version: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub status: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub owner: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub purpose: Option<String>,
     #[serde(default)]
     pub scope: Vec<String>,
@@ -36,7 +36,7 @@ pub struct BlockContract {
     pub outputs: Vec<ContractItem>,
     #[serde(default)]
     pub postconditions: Vec<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub implementation: Option<BlockImplementation>,
     #[serde(default)]
     pub dependencies: Value,
@@ -58,11 +58,11 @@ pub struct BlockContract {
     pub evaluation: Value,
     #[serde(default)]
     pub acceptance_criteria: Vec<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub debug: Option<DebugContract>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub observe: Option<ObserveContract>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub errors: Option<ErrorContract>,
     #[serde(default)]
     pub input_schema: BTreeMap<String, FieldSchema>,
@@ -72,7 +72,7 @@ pub struct BlockContract {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContractItem {
     pub name: String,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
 }
 
@@ -99,18 +99,18 @@ pub struct ObserveContract {
     pub metrics: Vec<String>,
     #[serde(default)]
     pub emits_failure_artifact: bool,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub artifact_policy: Option<ArtifactPolicy>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ArtifactPolicy {
     pub mode: ArtifactMode,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub on_failure_minimum: Option<FailureArtifactMinimum>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub redaction_profile: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub retention: Option<ArtifactRetention>,
 }
 
@@ -128,17 +128,17 @@ pub struct FailureArtifactMinimum {
     pub include_input_snapshot: bool,
     #[serde(default)]
     pub include_error_report: bool,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub include_output_snapshot: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ArtifactRetention {
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub root: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ttl_days: Option<u32>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_total_mb: Option<u32>,
 }
 
@@ -156,7 +156,7 @@ pub struct TaxonomyEntry {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FailureMode {
     pub id: String,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub when: Option<String>,
 }
 
@@ -166,11 +166,11 @@ pub struct FieldSchema {
     pub field_type: ValueType,
     #[serde(default)]
     pub required: bool,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub min_length: Option<usize>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_length: Option<usize>,
-    #[serde(default, rename = "enum")]
+    #[serde(default, rename = "enum", skip_serializing_if = "Vec::is_empty")]
     pub allowed_values: Vec<String>,
 }
 

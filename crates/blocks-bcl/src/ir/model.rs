@@ -7,7 +7,7 @@ use blocks_moc::{
 };
 
 use crate::diagnostics::SpanRange;
-use crate::syntax::ast::{BclDocument, FlowDecl, ProtocolDecl, SchemaFieldDecl};
+use crate::syntax::ast::{BclDocument, FlowDecl, GuardClause, ProtocolDecl, RecoverClause, SchemaFieldDecl};
 
 #[derive(Debug, Clone)]
 pub struct BclMocIr {
@@ -23,6 +23,19 @@ pub struct SpanIndex {
     pub flow_spans: BTreeMap<String, SpanRange>,
     pub step_spans: BTreeMap<(String, String), SpanRange>,
     pub bind_spans: BTreeMap<(String, usize), SpanRange>,
+    pub guard_clauses: BTreeMap<(String, String), GuardSpan>,
+    pub recover_clauses: BTreeMap<String, RecoverSpan>,
+}
+
+#[derive(Debug, Clone)]
+pub struct GuardSpan {
+    pub condition: String,
+    pub span: SpanRange,
+}
+
+#[derive(Debug, Clone)]
+pub struct RecoverSpan {
+    pub span: SpanRange,
 }
 
 #[derive(Debug, Clone)]
@@ -76,6 +89,8 @@ pub fn lower(document: BclDocument) -> Result<BclMocIr, String> {
         flow_spans: BTreeMap::new(),
         step_spans: BTreeMap::new(),
         bind_spans: BTreeMap::new(),
+        guard_clauses: BTreeMap::new(),
+        recover_clauses: BTreeMap::new(),
     };
 
     let mut entry_flow = None;
@@ -163,11 +178,28 @@ fn lower_flow(
         span_index
             .step_spans
             .insert((flow.id.clone(), step.id.clone()), step.span.clone());
+        if let Some(ref guard) = step.guard {
+            span_index.guard_clauses.insert(
+                (flow.id.clone(), step.id.clone()),
+                GuardSpan {
+                    condition: guard.condition.clone(),
+                    span: guard.span.clone(),
+                },
+            );
+        }
     }
     for (index, bind) in flow.binds.iter().enumerate() {
         span_index
             .bind_spans
             .insert((flow.id.clone(), index + 1), bind.span.clone());
+    }
+    if let Some(ref recover) = flow.recover {
+        span_index.recover_clauses.insert(
+            flow.id.clone(),
+            RecoverSpan {
+                span: recover.span.clone(),
+            },
+        );
     }
 
     Flow {

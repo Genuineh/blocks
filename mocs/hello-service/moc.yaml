@@ -1,0 +1,20 @@
+id: hello-service
+name: Hello Service
+type: backend_app
+backend_mode: service
+language: rust
+entry: backend/src/main.rs
+public_contract:
+  input_schema: {}
+  output_schema: {}
+uses:
+  blocks: []
+  internal_blocks: []
+depends_on_mocs: []
+protocols: []
+verification:
+  commands:
+  - cargo test
+  flows: []
+acceptance_criteria:
+- Document the intended capability and replace scaffold placeholders before activation.

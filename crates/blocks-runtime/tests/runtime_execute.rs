@@ -3,8 +3,9 @@ use std::fs;
 
 use blocks_contract::BlockContract;
 use blocks_runtime::{
-    BlockExecutionError, BlockRunner, ExecutionContext, Runtime, RuntimeError,
-    read_diagnostic_artifact, read_diagnostic_events,
+    BlockExecutionError, BlockRunner, ExecutionContext, ExecutionEnvelope, Runtime, RuntimeError,
+    RuntimeHost, SyncCliRuntimeHost, TokioServiceRuntimeHost, read_diagnostic_artifact,
+    read_diagnostic_events,
 };
 use serde_json::{Value, json};
 use tempfile::TempDir;
@@ -53,13 +54,20 @@ fn contract_with_taxonomy(entries: &[&str]) -> BlockContract {
 }
 
 fn active_contract_with_taxonomy(taxonomy: &[&str]) -> BlockContract {
+    active_contract_with_observe(
+        taxonomy,
+        "observe:\n  metrics:\n    - execution_total\n  emits_failure_artifact: true\n  artifact_policy:\n    mode: on_failure\n",
+    )
+}
+
+fn active_contract_with_observe(taxonomy: &[&str], observe_yaml: &str) -> BlockContract {
     let taxonomy_yaml = taxonomy
         .iter()
         .map(|id| format!("    - id: {id}"))
         .collect::<Vec<_>>()
         .join("\n");
     let source = base_contract_yaml(&format!(
-        "debug:\n  enabled_in_dev: true\n  emits_structured_logs: true\n  log_fields:\n    - execution_id\nobserve:\n  metrics:\n    - execution_total\n  emits_failure_artifact: true\n  artifact_policy:\n    mode: on_failure\nerrors:\n  taxonomy:\n{taxonomy_yaml}\n"
+        "debug:\n  enabled_in_dev: true\n  emits_structured_logs: true\n  log_fields:\n    - execution_id\n{observe_yaml}errors:\n  taxonomy:\n{taxonomy_yaml}\n"
     ))
     .replace("status: candidate", "status: active");
     BlockContract::from_yaml_str(&source).expect("contract should parse")
@@ -129,6 +137,13 @@ acceptance_criteria:
     )
 }
 
+fn frontend_contract() -> BlockContract {
+    BlockContract::from_yaml_str(
+        &base_contract_yaml("").replace("target: shared", "target: frontend"),
+    )
+    .expect("frontend contract should parse")
+}
+
 #[test]
 fn rejects_invalid_input_before_runner_executes() {
     let runtime = Runtime::new();
@@ -168,6 +183,61 @@ fn returns_execution_result_on_success() {
     assert_eq!(result.record.trace_id, None);
     assert!(result.record.success);
     assert_eq!(runner.calls.get(), 1);
+}
+
+#[test]
+fn sync_and_tokio_hosts_execute_same_runtime_contract() {
+    let contract = sample_contract();
+    let runner = StubRunner::success(json!({ "text": "hello" }));
+    let input = json!({ "text": "hello" });
+    let context = ExecutionContext {
+        trace_id: Some("trace-phase3".to_string()),
+        moc_id: Some("moc.phase3".to_string()),
+    };
+    let sync_host = SyncCliRuntimeHost::with_runtime(Runtime::new());
+    let tokio_host = TokioServiceRuntimeHost::with_runtime(Runtime::new());
+    let envelope = ExecutionEnvelope {
+        contract: &contract,
+        input: &input,
+        context: &context,
+    };
+
+    let sync_result = sync_host
+        .execute_envelope(&envelope, &runner)
+        .expect("sync host should execute the contract");
+    let tokio_result = tokio_host
+        .execute_envelope(&envelope, &runner)
+        .expect("tokio host should execute the contract");
+
+    assert_eq!(sync_result.output, json!({ "text": "hello" }));
+    assert_eq!(tokio_result.output, json!({ "text": "hello" }));
+    assert_eq!(sync_result.record.block_id, "demo.echo");
+    assert_eq!(tokio_result.record.block_id, "demo.echo");
+    assert!(sync_result.record.success);
+    assert!(tokio_result.record.success);
+    assert_eq!(runner.calls.get(), 2);
+}
+
+#[test]
+fn runtime_hosts_report_incompatible_frontend_targets() {
+    let contract = frontend_contract();
+    let sync_report = SyncCliRuntimeHost::new().check_contract(&contract);
+    let tokio_report = TokioServiceRuntimeHost::new().check_contract(&contract);
+
+    assert_eq!(sync_report.status, "error");
+    assert_eq!(tokio_report.status, "error");
+    assert!(
+        sync_report
+            .errors
+            .iter()
+            .any(|line| line.contains("does not support frontend targets"))
+    );
+    assert!(
+        tokio_report
+            .errors
+            .iter()
+            .any(|line| line.contains("does not support frontend targets"))
+    );
 }
 
 #[test]
@@ -358,4 +428,98 @@ fn falls_back_to_controlled_runtime_error_id_when_taxonomy_missing_preferred_kin
         artifact.error.error_id, "runtime_fallback_internal_error",
         "missing taxonomy mapping should use controlled fallback id"
     );
+}
+
+#[test]
+fn skips_failure_artifact_when_observe_disables_it() {
+    let diagnostics = TempDir::new().expect("temp dir should be created");
+    let runtime = Runtime::with_diagnostics_root(diagnostics.path().join(".blocks/diagnostics"));
+    let contract = active_contract_with_observe(
+        &["invalid_input", "internal_error"],
+        "observe:\n  metrics:\n    - execution_total\n  emits_failure_artifact: false\n  artifact_policy:\n    mode: on_failure\n",
+    );
+    let runner = StubRunner::failure("runner failed");
+
+    let result = runtime.execute(&contract, &json!({ "text": "hello" }), &runner);
+
+    let execution_id = match result {
+        Err(RuntimeError::ExecutionFailed { execution_id, .. }) => execution_id,
+        other => panic!("unexpected result: {other:?}"),
+    };
+
+    let artifact = read_diagnostic_artifact(runtime.diagnostics_root(), &execution_id)
+        .expect("artifact lookup should succeed");
+    assert!(
+        artifact.is_none(),
+        "artifact should be suppressed by observe"
+    );
+
+    let events =
+        read_diagnostic_events(runtime.diagnostics_root()).expect("events should be readable");
+    assert!(
+        events.iter().any(|event| {
+            event.execution_id == execution_id
+                && event.event == "block.execution.failure"
+                && event.error_id.as_deref() == Some("internal_error")
+        }),
+        "failure event should still be emitted even when artifact writing is disabled"
+    );
+}
+
+#[test]
+fn skips_failure_artifact_when_policy_mode_is_never() {
+    let diagnostics = TempDir::new().expect("temp dir should be created");
+    let runtime = Runtime::with_diagnostics_root(diagnostics.path().join(".blocks/diagnostics"));
+    let contract = active_contract_with_observe(
+        &["invalid_input", "internal_error"],
+        "observe:\n  metrics:\n    - execution_total\n  emits_failure_artifact: true\n  artifact_policy:\n    mode: never\n",
+    );
+    let runner = StubRunner::failure("runner failed");
+
+    let result = runtime.execute(&contract, &json!({ "text": "hello" }), &runner);
+
+    let execution_id = match result {
+        Err(RuntimeError::ExecutionFailed { execution_id, .. }) => execution_id,
+        other => panic!("unexpected result: {other:?}"),
+    };
+
+    let artifact = read_diagnostic_artifact(runtime.diagnostics_root(), &execution_id)
+        .expect("artifact lookup should succeed");
+    assert!(
+        artifact.is_none(),
+        "artifact should be skipped when mode=never"
+    );
+}
+
+#[test]
+fn applies_failure_artifact_minimum_payload_policy() {
+    let diagnostics = TempDir::new().expect("temp dir should be created");
+    let runtime = Runtime::with_diagnostics_root(diagnostics.path().join(".blocks/diagnostics"));
+    let contract = active_contract_with_observe(
+        &["invalid_output", "internal_error"],
+        "observe:\n  metrics:\n    - execution_total\n  emits_failure_artifact: true\n  artifact_policy:\n    mode: on_failure\n    on_failure_minimum:\n      include_input_snapshot: false\n      include_error_report: false\n      include_output_snapshot: never\n",
+    );
+    let runner = StubRunner::success(json!({ "unexpected": "value" }));
+
+    let result = runtime.execute(
+        &contract,
+        &json!({
+            "text": "hello",
+            "password": "unsafe"
+        }),
+        &runner,
+    );
+
+    let execution_id = match result {
+        Err(RuntimeError::OutputValidationFailed { execution_id, .. }) => execution_id,
+        other => panic!("unexpected result: {other:?}"),
+    };
+    let artifact = read_diagnostic_artifact(runtime.diagnostics_root(), &execution_id)
+        .expect("artifact lookup should succeed")
+        .expect("artifact should exist");
+
+    assert_eq!(artifact.input_snapshot, Value::Null);
+    assert_eq!(artifact.output_snapshot, None);
+    assert_eq!(artifact.error.error_id, "invalid_output");
+    assert_eq!(artifact.error.message, "suppressed by artifact policy");
 }

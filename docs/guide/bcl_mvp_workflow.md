@@ -149,11 +149,11 @@ Do not change runtime behavior by bypassing parity silently.
 - Do not point runtime commands at `moc.bcl`
 - Do not treat `emit` output as authoritative until parity is understood
 - Do not skip `validate` before `emit`
-- Do not assume Phase 4 gate behavior exists yet
+- Do not assume `error` gate mode is the default; as of 2026-03-13 the repository default remains `warn`
 
 ## Current Limitations
 
-- repository-level BCL gate is not enabled yet
+- repository-level BCL gate is enabled through `conformance run bcl` and `./scripts/repo_check.sh`
 - parity is structurally normalized, but additional unordered-array hardening may still be added
 - BCL is still MVP scope, not the full whitepaper language
 

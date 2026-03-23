@@ -1,0 +1,78 @@
+id: demo.slugify
+name: Demo Slugify
+version: 0.1.0
+status: candidate
+owner: blocks-core-team
+purpose: Provide a single reusable shared capability.
+scope:
+- Deliver one small, explicit capability.
+non_goals:
+- Composing multiple unrelated responsibilities.
+inputs:
+- name: value
+  description: Structured input for the block.
+preconditions:
+- Required input fields are present.
+outputs:
+- name: value
+  description: Structured output from the block.
+postconditions:
+- Output schema validation passes.
+implementation:
+  kind: rust
+  entry: rust/lib.rs
+  target: shared
+dependencies:
+  runtime:
+  - local-runtime
+side_effects:
+- Document side effects explicitly before activation.
+timeouts:
+  default_ms: 1000
+resource_limits:
+  memory_mb: 64
+failure_modes:
+- id: invalid_input
+  when: Input payload does not satisfy the declared schema.
+- id: internal_error
+  when: Implementation fails before producing a valid output.
+error_codes:
+- invalid_input
+- internal_error
+recovery_strategy:
+- Validate the input before invocation.
+- Keep failures diagnosable and retry only when safe.
+verification:
+  automated:
+  - add repo-specific verification command here
+evaluation:
+  quality_gates:
+  - define at least one result-quality gate
+acceptance_criteria:
+- A valid input produces a schema-valid output.
+debug:
+  enabled_in_dev: true
+  emits_structured_logs: true
+  log_fields:
+  - execution_id
+  - trace_id
+observe:
+  metrics:
+  - execution_total
+  emits_failure_artifact: true
+  artifact_policy:
+    mode: on_failure
+errors:
+  taxonomy:
+  - id: invalid_input
+  - id: internal_error
+input_schema:
+  value:
+    type: string
+    required: true
+    min_length: 1
+output_schema:
+  value:
+    type: string
+    required: true
+    min_length: 1

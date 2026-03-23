@@ -26,12 +26,12 @@ As of 2026-03-09, the BCL MVP core loop is achieved in the working tree:
 - trial `moc.bcl` coverage for `echo-pipeline` and `greeting-panel-web`
 - executable README command path for `validate -> plan -> emit --check-against`
 
-What remains open is Phase 4 operational rollout work, not MVP core completeness:
+As of 2026-03-13, the Phase 4 operational rollout work is also complete:
 
-- repository gate integration
-- warn -> error migration window
-- rollback switch documentation
-- additional hardening for unordered-array parity normalization
+- repository gate integration now flows through `conformance run bcl`
+- warn -> error migration window is documented
+- rollback switch documentation is public
+- additional hardening for unordered-array parity normalization may still be added later without changing the MVP boundary
 
 Authoritative rule:
 - `moc` remains the delivery unit.
@@ -168,8 +168,10 @@ acceptance_stmt = "accept" string ";" ;
 
 - Runtime authority is always `moc.yaml`.
 - For opted-in mocs, repository check must run parity gate:
-  - `blocks moc bcl emit <blocks-root> <moc.bcl> --check-against <moc.yaml>`
+  - `blocks conformance run bcl <blocks-root> <moc.bcl> --check-against <moc.yaml> --gate-mode <warn|error>`
 - In error mode, parity mismatch must fail gate.
+- Rollback path:
+  - `BLOCKS_BCL_GATE_MODE=off` disables the parity gate and reverts repository checks to pure `moc.yaml` authority.
 - `emit` should default to stdout; writing files via `--out` is allowed only for explicit generation workflows.
 
 ## Diagnostics Contract
@@ -226,6 +228,12 @@ Required fields:
 - Phase 3: opt-in parity checks on selected mocs
 - Phase 4: repo gate in warn mode first; error mode only after parity stability window
 
+As of 2026-03-13, repository gate default remains `warn`.
+
+Promotion rule:
+- the default may move from `warn` to `error` only after at least 14 consecutive calendar days of green parity checks across all opted-in trial mocs
+- if the gate causes regressions, `BLOCKS_BCL_GATE_MODE=off` is the immediate rollback switch
+
 Rollback requirement:
 - disabling BCL checks must not affect existing moc command workflows
 
@@ -235,4 +243,4 @@ Rollback requirement:
 - generated `moc.yaml` passes existing `blocks-moc` validation
 - parity checks are stable for trial mocs
 - no runtime boundary regression introduced
-- Phase 4 rollout gate integration may remain pending after MVP core completion
+- Phase 4 rollout gate integration is complete through `conformance run bcl`, `BLOCKS_BCL_GATE_MODE`, and repository-level checks

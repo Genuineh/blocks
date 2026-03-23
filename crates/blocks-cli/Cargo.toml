@@ -11,10 +11,14 @@ path = "src/main.rs"
 [dependencies]
 blocks-bcl = { path = "../blocks-bcl" }
 blocks-moc = { path = "../blocks-moc" }
+blocks-package = { path = "../blocks-package" }
+blocks-contract = { path = "../blocks-contract" }
 blocks-registry = { path = "../blocks-registry" }
 blocks-runner-catalog = { path = "../blocks-runner-catalog" }
 blocks-runtime = { path = "../blocks-runtime" }
+serde.workspace = true
 serde_json.workspace = true
+serde_yaml.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true

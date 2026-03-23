@@ -1,0 +1,11 @@
+[package]
+name = "block_demo_slugify"
+edition = "2024"
+version = "0.1.0"
+license = "MIT"
+
+[lib]
+path = "lib.rs"
+
+[dependencies]
+serde_json = "1.0"

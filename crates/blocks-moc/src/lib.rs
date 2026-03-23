@@ -15,7 +15,7 @@ pub struct MocManifest {
     pub name: String,
     #[serde(rename = "type")]
     pub moc_type: MocType,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub backend_mode: Option<BackendMode>,
     pub language: String,
     pub entry: String,
@@ -105,7 +105,7 @@ pub struct MocProtocol {
 pub struct MocVerification {
     #[serde(default)]
     pub commands: Vec<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub entry_flow: Option<String>,
     #[serde(default)]
     pub flows: Vec<Flow>,

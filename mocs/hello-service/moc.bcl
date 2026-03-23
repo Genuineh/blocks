@@ -1,0 +1,15 @@
+moc hello-service {
+  name "Hello Service";
+  type backend_app(service);
+  language rust;
+  entry "backend/src/main.rs";
+  input { }
+  output { }
+  uses { }
+  depends_on_mocs { }
+  protocols { }
+  verification {
+    command "cargo test";
+  }
+  accept "Document the intended capability and replace scaffold placeholders before activation.";
+}

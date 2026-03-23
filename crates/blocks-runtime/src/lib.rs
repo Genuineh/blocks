@@ -4,7 +4,9 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use blocks_contract::{BlockContract, ValidationIssue};
+use blocks_contract::{
+    ArtifactMode, BlockContract, ImplementationKind, ImplementationTarget, ValidationIssue,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use thiserror::Error;
@@ -27,6 +29,55 @@ pub struct ExecutionRecord {
 pub struct ExecutionContext {
     pub trace_id: Option<String>,
     pub moc_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum HostProfile {
+    SyncCli,
+    TokioService,
+}
+
+impl HostProfile {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::SyncCli => "sync-cli",
+            Self::TokioService => "tokio-service",
+        }
+    }
+
+    pub fn parse(value: &str) -> Result<Self, String> {
+        match value {
+            "sync-cli" => Ok(Self::SyncCli),
+            "tokio-service" => Ok(Self::TokioService),
+            other => Err(format!("unsupported runtime host profile: {other}")),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HostCapabilities {
+    pub host_profile: String,
+    pub runtime_model: String,
+    pub in_process: bool,
+    pub supports_contract_validation: bool,
+    pub supports_diagnostics_artifacts: bool,
+    pub supports_trace_context: bool,
+    pub supports_moc_context: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HostCompatibilityReport {
+    pub host_profile: String,
+    pub status: String,
+    pub warnings: Vec<String>,
+    pub errors: Vec<String>,
+    pub capabilities: HostCapabilities,
+}
+
+pub struct ExecutionEnvelope<'a> {
+    pub contract: &'a BlockContract,
+    pub input: &'a Value,
+    pub context: &'a ExecutionContext,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -95,6 +146,42 @@ pub trait BlockRunner {
 }
 
 #[derive(Debug, Error)]
+pub enum RuntimeHostError {
+    #[error("runtime host `{host_profile}` is unavailable: {message}")]
+    HostUnavailable {
+        host_profile: String,
+        message: String,
+    },
+    #[error("runtime host `{host_profile}` failed: {source}")]
+    Execution {
+        host_profile: String,
+        #[source]
+        source: RuntimeError,
+    },
+}
+
+pub trait RuntimeHost {
+    fn profile(&self) -> HostProfile;
+    fn capabilities(&self) -> HostCapabilities;
+    fn check_contract(&self, contract: &BlockContract) -> HostCompatibilityReport;
+    fn execute_envelope(
+        &self,
+        envelope: &ExecutionEnvelope<'_>,
+        runner: &dyn BlockRunner,
+    ) -> Result<ExecutionResult, RuntimeHostError>;
+}
+
+#[derive(Debug, Clone)]
+pub struct SyncCliRuntimeHost {
+    runtime: Runtime,
+}
+
+#[derive(Debug, Clone)]
+pub struct TokioServiceRuntimeHost {
+    runtime: Runtime,
+}
+
+#[derive(Debug, Error)]
 pub enum RuntimeError {
     #[error(
         "input validation failed (execution_id: {execution_id}, diagnostics: {diagnostic_path})"
@@ -128,6 +215,14 @@ pub struct Runtime {
     diagnostics_root: PathBuf,
 }
 
+#[derive(Debug, Clone, Copy)]
+struct FailureArtifactPolicy {
+    write_artifact: bool,
+    include_input_snapshot: bool,
+    include_output_snapshot: bool,
+    include_error_report: bool,
+}
+
 impl Runtime {
     pub fn new() -> Self {
         Self {
@@ -149,7 +244,7 @@ impl Runtime {
         &self,
         contract: &BlockContract,
         input: &Value,
-        runner: &impl BlockRunner,
+        runner: &dyn BlockRunner,
         context: &ExecutionContext,
     ) -> Result<ExecutionResult, RuntimeError> {
         let execution_id = generate_execution_id();
@@ -175,12 +270,19 @@ impl Runtime {
         });
 
         if let Err(issues) = contract.validate_input(input) {
+            let artifact_policy = failure_artifact_policy(contract);
             let error = RuntimeError::InputValidationFailed {
                 execution_id: execution_id.clone(),
-                diagnostic_path: diagnostic_artifact_path(&self.diagnostics_root, &execution_id),
+                diagnostic_path: failure_diagnostic_path(
+                    &self.diagnostics_root,
+                    &execution_id,
+                    artifact_policy,
+                ),
                 issues,
             };
             self.handle_failure(
+                contract,
+                artifact_policy,
                 &execution_id,
                 trace_id,
                 moc_id,
@@ -198,15 +300,19 @@ impl Runtime {
         let output = match runner.run(&contract.id, input) {
             Ok(output) => output,
             Err(source) => {
+                let artifact_policy = failure_artifact_policy(contract);
                 let error = RuntimeError::ExecutionFailed {
                     execution_id: execution_id.clone(),
-                    diagnostic_path: diagnostic_artifact_path(
+                    diagnostic_path: failure_diagnostic_path(
                         &self.diagnostics_root,
                         &execution_id,
+                        artifact_policy,
                     ),
                     source,
                 };
                 self.handle_failure(
+                    contract,
+                    artifact_policy,
                     &execution_id,
                     trace_id,
                     moc_id,
@@ -223,12 +329,19 @@ impl Runtime {
         };
 
         if let Err(issues) = contract.validate_output(&output) {
+            let artifact_policy = failure_artifact_policy(contract);
             let error = RuntimeError::OutputValidationFailed {
                 execution_id: execution_id.clone(),
-                diagnostic_path: diagnostic_artifact_path(&self.diagnostics_root, &execution_id),
+                diagnostic_path: failure_diagnostic_path(
+                    &self.diagnostics_root,
+                    &execution_id,
+                    artifact_policy,
+                ),
                 issues,
             };
             self.handle_failure(
+                contract,
+                artifact_policy,
                 &execution_id,
                 trace_id.clone(),
                 moc_id.clone(),
@@ -272,13 +385,15 @@ impl Runtime {
         &self,
         contract: &BlockContract,
         input: &Value,
-        runner: &impl BlockRunner,
+        runner: &dyn BlockRunner,
     ) -> Result<ExecutionResult, RuntimeError> {
         self.execute_with_context(contract, input, runner, &ExecutionContext::default())
     }
 
     fn handle_failure(
         &self,
+        contract: &BlockContract,
+        artifact_policy: FailureArtifactPolicy,
         execution_id: &str,
         trace_id: Option<String>,
         moc_id: Option<String>,
@@ -304,20 +419,28 @@ impl Runtime {
             message: Some(message.to_string()),
         });
 
+        if !artifact_policy.write_artifact {
+            return;
+        }
+
         let artifact = DiagnosticArtifact {
             execution_id: execution_id.to_string(),
             trace_id,
             moc_id,
             block_id: block_id.to_string(),
-            input_snapshot: redact_value(input),
-            output_snapshot: output.map(redact_value),
+            input_snapshot: snapshot_value(input, artifact_policy.include_input_snapshot),
+            output_snapshot: output.and_then(|value| {
+                artifact_policy
+                    .include_output_snapshot
+                    .then(|| redact_value(value))
+            }),
             error: DiagnosticError {
                 error_id,
-                message: message.to_string(),
+                message: diagnostic_error_message(message, artifact_policy.include_error_report),
             },
             environment: DiagnosticEnvironment {
                 runtime_mode: "dev".to_string(),
-                implementation_kind: "runtime_wrapper".to_string(),
+                implementation_kind: diagnostic_implementation_kind(contract).to_string(),
             },
         };
         self.write_artifact(&artifact);
@@ -361,8 +484,189 @@ impl Default for Runtime {
     }
 }
 
+impl SyncCliRuntimeHost {
+    pub fn new() -> Self {
+        Self {
+            runtime: Runtime::new(),
+        }
+    }
+
+    pub fn with_runtime(runtime: Runtime) -> Self {
+        Self { runtime }
+    }
+}
+
+impl Default for SyncCliRuntimeHost {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl RuntimeHost for SyncCliRuntimeHost {
+    fn profile(&self) -> HostProfile {
+        HostProfile::SyncCli
+    }
+
+    fn capabilities(&self) -> HostCapabilities {
+        host_capabilities(self.profile(), "in_process_sync")
+    }
+
+    fn check_contract(&self, contract: &BlockContract) -> HostCompatibilityReport {
+        host_compatibility_report(self.profile(), contract, self.capabilities())
+    }
+
+    fn execute_envelope(
+        &self,
+        envelope: &ExecutionEnvelope<'_>,
+        runner: &dyn BlockRunner,
+    ) -> Result<ExecutionResult, RuntimeHostError> {
+        let report = self.check_contract(envelope.contract);
+        if report.status == "error" {
+            return Err(RuntimeHostError::HostUnavailable {
+                host_profile: report.host_profile,
+                message: report.errors.join("; "),
+            });
+        }
+        self.runtime
+            .execute_with_context(envelope.contract, envelope.input, runner, envelope.context)
+            .map_err(|source| RuntimeHostError::Execution {
+                host_profile: self.profile().as_str().to_string(),
+                source,
+            })
+    }
+}
+
+impl TokioServiceRuntimeHost {
+    pub fn new() -> Self {
+        Self {
+            runtime: Runtime::new(),
+        }
+    }
+
+    pub fn with_runtime(runtime: Runtime) -> Self {
+        Self { runtime }
+    }
+}
+
+impl Default for TokioServiceRuntimeHost {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl RuntimeHost for TokioServiceRuntimeHost {
+    fn profile(&self) -> HostProfile {
+        HostProfile::TokioService
+    }
+
+    fn capabilities(&self) -> HostCapabilities {
+        host_capabilities(self.profile(), "tokio_current_thread")
+    }
+
+    fn check_contract(&self, contract: &BlockContract) -> HostCompatibilityReport {
+        host_compatibility_report(self.profile(), contract, self.capabilities())
+    }
+
+    fn execute_envelope(
+        &self,
+        envelope: &ExecutionEnvelope<'_>,
+        runner: &dyn BlockRunner,
+    ) -> Result<ExecutionResult, RuntimeHostError> {
+        let report = self.check_contract(envelope.contract);
+        if report.status == "error" {
+            return Err(RuntimeHostError::HostUnavailable {
+                host_profile: report.host_profile,
+                message: report.errors.join("; "),
+            });
+        }
+        let tokio_runtime = tokio::runtime::Builder::new_current_thread()
+            .build()
+            .map_err(|error| RuntimeHostError::HostUnavailable {
+                host_profile: self.profile().as_str().to_string(),
+                message: error.to_string(),
+            })?;
+        tokio_runtime
+            .block_on(async {
+                self.runtime.execute_with_context(
+                    envelope.contract,
+                    envelope.input,
+                    runner,
+                    envelope.context,
+                )
+            })
+            .map_err(|source| RuntimeHostError::Execution {
+                host_profile: self.profile().as_str().to_string(),
+                source,
+            })
+    }
+}
+
+fn host_capabilities(profile: HostProfile, runtime_model: &str) -> HostCapabilities {
+    HostCapabilities {
+        host_profile: profile.as_str().to_string(),
+        runtime_model: runtime_model.to_string(),
+        in_process: true,
+        supports_contract_validation: true,
+        supports_diagnostics_artifacts: true,
+        supports_trace_context: true,
+        supports_moc_context: true,
+    }
+}
+
+fn host_compatibility_report(
+    profile: HostProfile,
+    contract: &BlockContract,
+    capabilities: HostCapabilities,
+) -> HostCompatibilityReport {
+    let mut warnings = Vec::new();
+    let mut errors = Vec::new();
+
+    match &contract.implementation {
+        Some(implementation) => {
+            if implementation.kind != ImplementationKind::Rust {
+                errors.push(format!(
+                    "runtime host `{}` only supports rust implementations in Phase 3",
+                    profile.as_str()
+                ));
+            }
+            if implementation.target == ImplementationTarget::Frontend {
+                errors.push(format!(
+                    "runtime host `{}` does not support frontend targets",
+                    profile.as_str()
+                ));
+            }
+            if profile == HostProfile::TokioService
+                && implementation.target == ImplementationTarget::Shared
+            {
+                warnings.push(
+                    "shared rust target is running through the tokio service compatibility profile"
+                        .to_string(),
+                );
+            }
+        }
+        None => errors.push("block contract is missing implementation metadata".to_string()),
+    }
+
+    HostCompatibilityReport {
+        host_profile: profile.as_str().to_string(),
+        status: if errors.is_empty() {
+            if warnings.is_empty() { "ok" } else { "warn" }
+        } else {
+            "error"
+        }
+        .to_string(),
+        warnings,
+        errors,
+        capabilities,
+    }
+}
+
 pub fn default_diagnostics_root() -> PathBuf {
     PathBuf::from(".blocks").join("diagnostics")
+}
+
+pub fn supported_host_profiles() -> &'static [HostProfile] {
+    &[HostProfile::SyncCli, HostProfile::TokioService]
 }
 
 pub fn generate_trace_id() -> String {
@@ -474,6 +778,22 @@ fn diagnostic_artifact_path(diagnostics_root: &Path, execution_id: &str) -> Stri
         .to_string()
 }
 
+fn diagnostics_events_path(diagnostics_root: &Path) -> String {
+    diagnostics_root.join("events.jsonl").display().to_string()
+}
+
+fn failure_diagnostic_path(
+    diagnostics_root: &Path,
+    execution_id: &str,
+    artifact_policy: FailureArtifactPolicy,
+) -> String {
+    if artifact_policy.write_artifact {
+        diagnostic_artifact_path(diagnostics_root, execution_id)
+    } else {
+        diagnostics_events_path(diagnostics_root)
+    }
+}
+
 fn resolve_error_id(contract: &BlockContract, preferred_id: &str) -> String {
     let taxonomy = contract
         .errors
@@ -490,4 +810,91 @@ fn resolve_error_id(contract: &BlockContract, preferred_id: &str) -> String {
         return "internal_error".to_string();
     }
     format!("runtime_fallback_{preferred_id}")
+}
+
+fn failure_artifact_policy(contract: &BlockContract) -> FailureArtifactPolicy {
+    let Some(observe) = contract.observe.as_ref() else {
+        return FailureArtifactPolicy {
+            write_artifact: true,
+            include_input_snapshot: true,
+            include_output_snapshot: true,
+            include_error_report: true,
+        };
+    };
+
+    if !observe.emits_failure_artifact {
+        return FailureArtifactPolicy {
+            write_artifact: false,
+            include_input_snapshot: false,
+            include_output_snapshot: false,
+            include_error_report: false,
+        };
+    }
+
+    let Some(policy) = observe.artifact_policy.as_ref() else {
+        return FailureArtifactPolicy {
+            write_artifact: true,
+            include_input_snapshot: true,
+            include_output_snapshot: true,
+            include_error_report: true,
+        };
+    };
+
+    if policy.mode == ArtifactMode::Never {
+        return FailureArtifactPolicy {
+            write_artifact: false,
+            include_input_snapshot: false,
+            include_output_snapshot: false,
+            include_error_report: false,
+        };
+    }
+
+    let minimum = policy.on_failure_minimum.as_ref();
+    let include_output_snapshot = !matches!(
+        minimum.and_then(|minimum| minimum.include_output_snapshot.as_deref()),
+        Some("never")
+    );
+
+    FailureArtifactPolicy {
+        write_artifact: matches!(policy.mode, ArtifactMode::Always | ArtifactMode::OnFailure),
+        include_input_snapshot: minimum.is_none_or(|minimum| minimum.include_input_snapshot),
+        include_output_snapshot,
+        include_error_report: minimum.is_none_or(|minimum| minimum.include_error_report),
+    }
+}
+
+fn snapshot_value(value: &Value, include_snapshot: bool) -> Value {
+    if include_snapshot {
+        redact_value(value)
+    } else {
+        Value::Null
+    }
+}
+
+fn diagnostic_error_message(message: &str, include_error_report: bool) -> String {
+    if include_error_report {
+        message.to_string()
+    } else {
+        "suppressed by artifact policy".to_string()
+    }
+}
+
+fn diagnostic_implementation_kind(contract: &BlockContract) -> &str {
+    match contract.implementation.as_ref().map(|value| value.kind) {
+        Some(implementation_kind) => implementation_kind.as_str(),
+        None => "runtime_wrapper",
+    }
+}
+
+trait ImplementationKindLabel {
+    fn as_str(self) -> &'static str;
+}
+
+impl ImplementationKindLabel for blocks_contract::ImplementationKind {
+    fn as_str(self) -> &'static str {
+        match self {
+            blocks_contract::ImplementationKind::Rust => "rust",
+            blocks_contract::ImplementationKind::TauriTs => "tauri_ts",
+        }
+    }
 }

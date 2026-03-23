@@ -83,12 +83,27 @@ pub struct FlowDecl {
     pub is_entry: bool,
     pub steps: Vec<StepDecl>,
     pub binds: Vec<BindDecl>,
+    pub recover: Option<RecoverClause>,
+}
+
+#[derive(Debug, Clone)]
+pub struct RecoverClause {
+    pub steps: Vec<StepDecl>,
+    pub binds: Vec<BindDecl>,
+    pub span: SpanRange,
 }
 
 #[derive(Debug, Clone)]
 pub struct StepDecl {
     pub id: String,
     pub block: String,
+    pub guard: Option<GuardClause>,
+    pub span: SpanRange,
+}
+
+#[derive(Debug, Clone)]
+pub struct GuardClause {
+    pub condition: String,
     pub span: SpanRange,
 }
 

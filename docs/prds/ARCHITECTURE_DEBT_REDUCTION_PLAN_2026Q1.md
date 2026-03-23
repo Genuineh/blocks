@@ -1,8 +1,8 @@
 ---
-status: draft
+status: active
 owner: Developer
 created: 2026-03-05
-updated: 2026-03-05
+updated: 2026-03-13
 related_issue: N/A
 version: 1.0
 ---
@@ -11,6 +11,8 @@ version: 1.0
 
 ## Summary
 在 `blocks-contract/registry/runtime/moc/cli` 的当前实现中，存在三类会持续放大维护成本的架构问题：规范与模型漂移、观测边界绕过、CLI 单体化。该计划用于在 1-2 周内完成第一轮结构回正。
+
+当前状态：首轮整改已完成，后续仅保留为历史与验收参考。
 
 ## Problem
 - `BLOCKS_SPEC` 的多个 `MUST` 字段尚未由 `blocks-contract` 机器强校验，导致规范合规状态不可被稳定判定。
@@ -54,6 +56,6 @@ version: 1.0
 - `moc run` 对历史示例是否提供兼容开关（软迁移）？
 
 ## Acceptance Criteria
-- [ ] `blocks-contract` 对关键 `MUST` 字段具备机器强校验与失败门禁。
-- [ ] `moc run` 与 `moc verify` 均通过统一 runtime wrapper 产出一致诊断包络。
-- [ ] `blocks-cli` 完成模块化拆分并保持现有命令行为兼容。
+- [x] `blocks-contract` 对关键 `MUST` 字段具备机器强校验与失败门禁。
+- [x] `moc run` 与 `moc verify` 均通过统一 runtime wrapper 产出一致诊断包络。
+- [x] `blocks-cli` 完成模块化拆分并保持现有命令行为兼容。

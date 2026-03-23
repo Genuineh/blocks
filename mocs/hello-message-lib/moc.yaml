@@ -14,15 +14,16 @@ uses:
   internal_blocks: []
 depends_on_mocs: []
 protocols:
-  - name: hello-message
-    channel: memory
-    input_schema: {}
-    output_schema:
-      text:
-        type: string
-        required: true
+- name: hello-message
+  channel: memory
+  input_schema: {}
+  output_schema:
+    text:
+      type: string
+      required: true
 verification:
   commands:
-    - cargo test -p hello-message-lib
+  - cargo test -p hello-message-lib
+  flows: []
 acceptance_criteria:
-  - returns the fixed hello world message
+- returns the fixed hello world message
